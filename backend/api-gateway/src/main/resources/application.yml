@@ -11,10 +11,18 @@ spring:
       globalcors:
         cors-configurations:
           '[/**]':
-            allowedOriginPatterns: "*"
-            allowedMethods: "*"
-            allowedHeaders: "*"
+            # 'allowedOriginPatterns: *' WITH allowCredentials=true was a hole:
+            # Spring's pattern-matching variant accepts any origin under that
+            # wildcard *and* sends Allow-Credentials, so attacker.com could
+            # cross-fetch our API with the victim's cookies/auth state.
+            # Now: explicit origin list, env-overridable for prod (set
+            # CORS_ALLOWED_ORIGINS=https://yourdomain.com,https://www.yourdomain.com).
+            allowedOrigins: ${CORS_ALLOWED_ORIGINS:http://localhost:3000,http://localhost:5173}
+            allowedMethods: GET,POST,PUT,PATCH,DELETE,OPTIONS
+            allowedHeaders: Authorization,Content-Type,X-Correlation-Id,X-Guest-Token
+            exposedHeaders: X-Correlation-Id,Retry-After
             allowCredentials: true
+            maxAge: 3600
       routes:
         - id: auth
           uri: ${AUTH_SERVICE_URL:http://localhost:8081}
