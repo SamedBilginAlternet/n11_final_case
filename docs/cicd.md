@@ -5,11 +5,13 @@
 Bu repoda üç workflow var:
 
 - `.github/workflows/backend.yml` — backend modülleri için matrix build (her servis ayrı job).
-  Test başarılı olursa main branch'te Jib ile GHCR'a image push.
+  Sadece `mvn verify` koşar; image push deploy.yml'a delege edildi.
 - `.github/workflows/frontend.yml` — Vite proje için lint + test + build, dist artifact
   upload.
-- `.github/workflows/deploy.yml` — `v*` tag push ya da manual dispatch ile tetiklenir;
-  ECR'a Jib build/push, Beanstalk'a `Dockerrun.aws.json` ile deploy, Slack notify.
+- `.github/workflows/deploy.yml` — main'e push veya `v*` tag ile tetiklenir; tüm backend
+  servislerini Jib ile GHCR'a, frontend'i Docker ile GHCR'a push'lar; ardından
+  `appleboy/scp-action` + `appleboy/ssh-action` ile DigitalOcean droplet'e deploy eder
+  (`docker compose pull && up -d`); en sonda Slack webhook'a renkli attachment gönderir.
 
 ## Jenkins ile karşılaştırma
 
@@ -76,7 +78,15 @@ pipeline {
     stage('Deploy on tag') {
       when { tag 'v*' }
       steps {
-        sh 'aws elasticbeanstalk update-environment ...'
+        sshagent(['n11-droplet']) {
+          sh '''
+            ssh deploy@$DROPLET_HOST "
+              cd /opt/n11 &&
+              docker compose -f docker-compose.prod.yml --env-file .env pull &&
+              docker compose -f docker-compose.prod.yml --env-file .env up -d
+            "
+          '''
+        }
       }
     }
   }
@@ -97,12 +107,12 @@ pipeline {
 | `if: github.ref == 'refs/heads/main'` | `when { branch 'main' }` |
 | `secrets.X` | `credentials('id')` ya da `withCredentials` |
 | `actions/cache@v4` | Maven local repo on agent ya da Pipeline Maven Integration plugin |
-| `aws-actions/configure-aws-credentials` (OIDC) | AWS Credentials plugin / IAM instance profile |
+| `appleboy/ssh-action` (SSH key) | SSH Agent / Publish Over SSH plugin |
 | `slack-notify` step | `slackSend` (Slack Notification plugin) |
 
 ## Neden bu projede GitHub Actions tercih edildi?
 
 - Projeyle birlikte versiyonlanan pipeline (PR review'da workflow değişikliği görünür).
 - Public repo ödemesiz minutes.
-- Marketplace'tan AWS OIDC, Jib, Slack, Maven cache action'ları hazır.
+- Marketplace'tan SSH, Jib, Slack, Maven cache action'ları hazır.
 - Ek altyapı yok — Jenkins master + worker'a bakım gerekmiyor.
