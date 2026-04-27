@@ -2,7 +2,7 @@ package com.n11.cart.service;
 
 import com.n11.cart.api.dto.AddItemRequest;
 import com.n11.cart.api.dto.CartDto;
-import com.n11.cart.api.dto.CartItemDto;
+import com.n11.cart.api.mapper.CartMapper;
 import com.n11.cart.client.ProductClient;
 import com.n11.cart.client.ProductSnapshot;
 import com.n11.cart.domain.Cart;
@@ -15,8 +15,6 @@ import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 import org.springframework.web.server.ResponseStatusException;
 
-import java.math.BigDecimal;
-import java.util.List;
 import java.util.Optional;
 
 import static org.springframework.http.HttpStatus.NOT_FOUND;
@@ -28,12 +26,13 @@ public class CartService {
 
     private final CartRepository cartRepository;
     private final ProductClient productClient;
+    private final CartMapper mapper;
 
     @Transactional(readOnly = true)
     public CartDto get(Long userId) {
         return cartRepository.findByUserId(userId)
-                .map(this::toDto)
-                .orElseGet(() -> emptyDto(userId));
+                .map(mapper::toDto)
+                .orElseGet(() -> mapper.empty(userId));
     }
 
     @Transactional
@@ -69,7 +68,7 @@ public class CartService {
 
         Cart saved = cartRepository.save(cart);
         log.info("Added productId={} qty={} to cartId={}", product.id(), request.quantity(), saved.getId());
-        return toDto(saved);
+        return mapper.toDto(saved);
     }
 
     @Transactional
@@ -85,7 +84,7 @@ public class CartService {
                     "Requested quantity exceeds available stock for product " + product.id());
         }
         item.setQuantity(quantity);
-        return toDto(cartRepository.save(cart));
+        return mapper.toDto(cartRepository.save(cart));
     }
 
     @Transactional
@@ -96,7 +95,7 @@ public class CartService {
                 .filter(i -> i.getId().equals(itemId)).findFirst()
                 .orElseThrow(() -> new ResponseStatusException(NOT_FOUND, "Cart item not found: " + itemId));
         cart.removeItem(target);
-        return toDto(cartRepository.save(cart));
+        return mapper.toDto(cartRepository.save(cart));
     }
 
     @Transactional
@@ -110,28 +109,5 @@ public class CartService {
 
     private Cart createCart(Long userId) {
         return cartRepository.save(Cart.builder().userId(userId).build());
-    }
-
-    private CartDto emptyDto(Long userId) {
-        return new CartDto(null, userId, List.of(), BigDecimal.ZERO, "TRY", 0);
-    }
-
-    private CartDto toDto(Cart cart) {
-        List<CartItemDto> items = cart.getItems().stream()
-                .map(i -> new CartItemDto(
-                        i.getId(),
-                        i.getProductId(),
-                        i.getProductName(),
-                        i.getImageUrl(),
-                        i.getQuantity(),
-                        i.getUnitPrice(),
-                        i.getUnitPrice().multiply(BigDecimal.valueOf(i.getQuantity())),
-                        i.getCurrency()))
-                .toList();
-
-        BigDecimal total = items.stream().map(CartItemDto::lineTotal).reduce(BigDecimal.ZERO, BigDecimal::add);
-        int qty = items.stream().mapToInt(CartItemDto::quantity).sum();
-        String currency = items.isEmpty() ? "TRY" : items.get(0).currency();
-        return new CartDto(cart.getId(), cart.getUserId(), items, total, currency, qty);
     }
 }
