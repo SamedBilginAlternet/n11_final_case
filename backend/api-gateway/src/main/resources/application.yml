@@ -109,7 +109,14 @@ management:
   endpoints:
     web:
       exposure:
-        include: health,info,metrics,gateway
+        # Tightened: 'gateway' previously exposed the full route table —
+        # downstream service URLs, predicates, filters, internal topology
+        # leaked to anyone who could hit the gateway publicly. 'metrics'
+        # likewise dumps JVM + per-route counters that belong on an
+        # internal Prometheus scrape, not the public surface.
+        # Override via MANAGEMENT_ENDPOINTS_WEB_EXPOSURE_INCLUDE on the
+        # ops box if you need them temporarily.
+        include: ${MANAGEMENT_ENDPOINTS_WEB_EXPOSURE_INCLUDE:health,info}
 
 logging:
   pattern:
