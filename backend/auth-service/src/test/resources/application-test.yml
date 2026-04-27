@@ -1,0 +1,12 @@
+spring:
+  jpa:
+    hibernate:
+      ddl-auto: validate
+  flyway:
+    enabled: true
+
+n11:
+  jwt:
+    secret: integration-test-32-byte-secret-padding-1234
+    access-ttl-minutes: 60
+    issuer: n11-auth
