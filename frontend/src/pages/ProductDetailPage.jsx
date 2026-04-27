@@ -3,6 +3,7 @@ import { Link, useParams } from 'react-router-dom';
 import { api } from '../api/client.js';
 import { useAuth } from '../state/AuthContext.jsx';
 import { useCart } from '../state/CartContext.jsx';
+import RatingStars from '../components/product/RatingStars.jsx';
 import { formatCurrency } from '../utils/format.js';
 
 export default function ProductDetailPage() {
@@ -24,11 +25,12 @@ export default function ProductDetailPage() {
       .finally(() => setLoading(false));
   }, [slug]);
 
-  if (loading) return <div className="card h-64 animate-pulse bg-slate-100" />;
+  if (loading) return <div className="card h-64 animate-pulse bg-gray-100" />;
   if (error) return <p className="rounded bg-red-50 p-3 text-sm text-red-600">{error}</p>;
   if (!product) return null;
 
   const inStock = product.stock > 0;
+  const oldPrice = Number(product.price) * 1.2;
 
   async function onAddToCart() {
     if (!isAuthed) return;
@@ -46,16 +48,25 @@ export default function ProductDetailPage() {
         {product.imageUrl ? (
           <img src={product.imageUrl} alt={product.name} className="aspect-square w-full object-cover" />
         ) : (
-          <div className="aspect-square bg-slate-100" />
+          <div className="aspect-square bg-gray-100" />
         )}
       </div>
 
       <div className="space-y-4">
-        <p className="text-xs uppercase tracking-wider text-slate-400">{product.categoryName}</p>
+        <p className="text-xs uppercase tracking-wider text-gray-400">{product.categoryName}</p>
         <h1 className="text-2xl font-semibold tracking-tight">{product.name}</h1>
-        <p className="text-3xl font-semibold text-n11-orange">{formatCurrency(product.price, product.currency)}</p>
 
-        <p className="leading-relaxed text-slate-600">{product.description}</p>
+        <RatingStars value={product.ratingAverage} count={product.ratingCount} size="md" />
+
+        <div>
+          <p className="text-sm text-gray-400 line-through">{formatCurrency(oldPrice, product.currency)}</p>
+          <div className="flex items-baseline gap-3">
+            <span className="text-xs font-bold uppercase tracking-wider text-n11-pink">SEPETTE</span>
+            <span className="text-3xl font-extrabold text-n11-black">{formatCurrency(product.price, product.currency)}</span>
+          </div>
+        </div>
+
+        <p className="leading-relaxed text-gray-600">{product.description}</p>
 
         <div className="flex items-center gap-3">
           <span className={inStock ? 'text-sm text-emerald-600' : 'text-sm text-red-500'}>
@@ -78,9 +89,9 @@ export default function ProductDetailPage() {
             </button>
           </div>
         ) : (
-          <p className="text-sm text-slate-500">
+          <p className="text-sm text-gray-500">
             Sepete eklemek için{' '}
-            <Link to="/login" className="text-n11-orange">
+            <Link to="/login" className="font-medium text-n11-pink hover:text-n11-pinkDark">
               giriş yap
             </Link>
             .
