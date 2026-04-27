@@ -19,6 +19,13 @@ x-redis-env: &redis-env
 x-jvm-defaults: &jvm-defaults
   JAVA_TOOL_OPTIONS: "-XX:+UseG1GC -XX:MaxRAMPercentage=75"
 
+# Inject the OTLP collector endpoint into every backend service.  Sampling
+# probability stays at 1.0 in dev/demo so every checkout shows up in Jaeger;
+# crank down with TRACE_SAMPLING=0.1 in prod when traffic spikes.
+x-otel-env: &otel-env
+  OTEL_EXPORTER_OTLP_ENDPOINT: http://jaeger:4318
+  TRACE_SAMPLING: "${TRACE_SAMPLING:-1.0}"
+
 services:
   postgres:
     image: postgres:16-alpine
@@ -64,6 +71,18 @@ services:
       timeout: 3s
       retries: 6
 
+  # Distributed tracing UI + OTLP collector. all-in-one image bundles
+  # collector + storage + UI into a single container — production would split
+  # them, but for one droplet this is enough. Native OTLP-HTTP intake on 4318
+  # means we don't need a separate otel-collector sidecar.
+  jaeger:
+    image: jaegertracing/all-in-one:1.62
+    environment:
+      COLLECTOR_OTLP_ENABLED: "true"
+    ports:
+      - "16686:16686" # Jaeger UI
+      - "4318:4318"   # OTLP HTTP receiver — services post spans here
+
   auth-service:
     build:
       context: ./backend
@@ -74,7 +93,7 @@ services:
       postgres: { condition: service_healthy }
       rabbitmq: { condition: service_healthy }
     environment:
-      <<: [*postgres-env, *rabbitmq-env, *jvm-defaults]
+      <<: [*postgres-env, *rabbitmq-env, *otel-env, *jvm-defaults]
       SERVER_PORT: 8081
       POSTGRES_DB: authdb
       JWT_SECRET: ${JWT_SECRET:-changeme-32-byte-min-secret-changeme-please-rotate}
@@ -95,7 +114,7 @@ services:
       postgres: { condition: service_healthy }
       redis:    { condition: service_healthy }
     environment:
-      <<: [*postgres-env, *redis-env, *jvm-defaults]
+      <<: [*postgres-env, *redis-env, *otel-env, *jvm-defaults]
       SERVER_PORT: 8082
       POSTGRES_DB: productdb
       JWT_SECRET: ${JWT_SECRET:-changeme-32-byte-min-secret-changeme-please-rotate}
@@ -113,7 +132,7 @@ services:
       redis:    { condition: service_healthy }
       product-service: { condition: service_started }
     environment:
-      <<: [*postgres-env, *rabbitmq-env, *redis-env, *jvm-defaults]
+      <<: [*postgres-env, *rabbitmq-env, *redis-env, *otel-env, *jvm-defaults]
       SERVER_PORT: 8083
       POSTGRES_DB: cartdb
       JWT_SECRET: ${JWT_SECRET:-changeme-32-byte-min-secret-changeme-please-rotate}
@@ -132,7 +151,7 @@ services:
       cart-service: { condition: service_started }
       auth-service: { condition: service_started }
     environment:
-      <<: [*postgres-env, *rabbitmq-env, *jvm-defaults]
+      <<: [*postgres-env, *rabbitmq-env, *otel-env, *jvm-defaults]
       SERVER_PORT: 8084
       POSTGRES_DB: orderdb
       JWT_SECRET: ${JWT_SECRET:-changeme-32-byte-min-secret-changeme-please-rotate}
@@ -150,7 +169,7 @@ services:
       postgres: { condition: service_healthy }
       rabbitmq: { condition: service_healthy }
     environment:
-      <<: [*postgres-env, *rabbitmq-env, *jvm-defaults]
+      <<: [*postgres-env, *rabbitmq-env, *otel-env, *jvm-defaults]
       SERVER_PORT: 8085
       POSTGRES_DB: paymentdb
       IYZICO_ENABLED: ${IYZICO_ENABLED:-false}
@@ -169,7 +188,7 @@ services:
       postgres: { condition: service_healthy }
       product-service: { condition: service_started }
     environment:
-      <<: [*postgres-env, *jvm-defaults]
+      <<: [*postgres-env, *otel-env, *jvm-defaults]
       SERVER_PORT: 8087
       POSTGRES_DB: chatbotdb
       CHATBOT_PROVIDER: ${CHATBOT_PROVIDER:-MOCK}
@@ -194,7 +213,7 @@ services:
       payment-service: { condition: service_started }
       chatbot-service: { condition: service_started }
     environment:
-      <<: *jvm-defaults
+      <<: [*jvm-defaults, *otel-env]
       SERVER_PORT: 8080
       AUTH_SERVICE_URL: http://auth-service:8081
       PRODUCT_SERVICE_URL: http://product-service:8082

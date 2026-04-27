@@ -22,6 +22,10 @@ x-redis-env: &redis-env
 x-jvm-defaults: &jvm-defaults
   JAVA_TOOL_OPTIONS: "-XX:+UseG1GC -XX:MaxRAMPercentage=60"
 
+x-otel-env: &otel-env
+  OTEL_EXPORTER_OTLP_ENDPOINT: http://jaeger:4318
+  TRACE_SAMPLING: "${TRACE_SAMPLING:-0.2}"
+
 services:
   postgres:
     image: postgres:16-alpine
@@ -63,13 +67,24 @@ services:
       retries: 6
     restart: unless-stopped
 
+  jaeger:
+    image: jaegertracing/all-in-one:1.62
+    environment:
+      COLLECTOR_OTLP_ENABLED: "true"
+    # Only the UI is exposed publicly via Caddy basic-auth (see Caddyfile);
+    # OTLP intake stays on the internal docker network.
+    expose:
+      - "16686"
+      - "4318"
+    restart: unless-stopped
+
   auth-service:
     image: ghcr.io/${GHCR_OWNER}/auth-service:${IMAGE_TAG:-latest}
     depends_on:
       postgres: { condition: service_healthy }
       rabbitmq: { condition: service_healthy }
     environment:
-      <<: [*postgres-env, *rabbitmq-env, *jvm-defaults]
+      <<: [*postgres-env, *rabbitmq-env, *otel-env, *jvm-defaults]
       SERVER_PORT: 8081
       POSTGRES_DB: authdb
       JWT_SECRET: ${JWT_SECRET}
@@ -86,7 +101,7 @@ services:
       postgres: { condition: service_healthy }
       redis:    { condition: service_healthy }
     environment:
-      <<: [*postgres-env, *redis-env, *jvm-defaults]
+      <<: [*postgres-env, *redis-env, *otel-env, *jvm-defaults]
       SERVER_PORT: 8082
       POSTGRES_DB: productdb
       JWT_SECRET: ${JWT_SECRET}
@@ -100,7 +115,7 @@ services:
       redis:    { condition: service_healthy }
       product-service: { condition: service_started }
     environment:
-      <<: [*postgres-env, *rabbitmq-env, *redis-env, *jvm-defaults]
+      <<: [*postgres-env, *rabbitmq-env, *redis-env, *otel-env, *jvm-defaults]
       SERVER_PORT: 8083
       POSTGRES_DB: cartdb
       JWT_SECRET: ${JWT_SECRET}
@@ -115,7 +130,7 @@ services:
       cart-service: { condition: service_started }
       auth-service: { condition: service_started }
     environment:
-      <<: [*postgres-env, *rabbitmq-env, *jvm-defaults]
+      <<: [*postgres-env, *rabbitmq-env, *otel-env, *jvm-defaults]
       SERVER_PORT: 8084
       POSTGRES_DB: orderdb
       JWT_SECRET: ${JWT_SECRET}
@@ -129,7 +144,7 @@ services:
       postgres: { condition: service_healthy }
       rabbitmq: { condition: service_healthy }
     environment:
-      <<: [*postgres-env, *rabbitmq-env, *jvm-defaults]
+      <<: [*postgres-env, *rabbitmq-env, *otel-env, *jvm-defaults]
       SERVER_PORT: 8085
       POSTGRES_DB: paymentdb
       IYZICO_ENABLED: ${IYZICO_ENABLED:-false}
@@ -144,7 +159,7 @@ services:
       postgres: { condition: service_healthy }
       product-service: { condition: service_started }
     environment:
-      <<: [*postgres-env, *jvm-defaults]
+      <<: [*postgres-env, *otel-env, *jvm-defaults]
       SERVER_PORT: 8087
       POSTGRES_DB: chatbotdb
       CHATBOT_PROVIDER: ${CHATBOT_PROVIDER:-GROQ}
@@ -164,7 +179,7 @@ services:
       payment-service: { condition: service_started }
       chatbot-service: { condition: service_started }
     environment:
-      <<: *jvm-defaults
+      <<: [*jvm-defaults, *otel-env]
       SERVER_PORT: 8080
       AUTH_SERVICE_URL: http://auth-service:8081
       PRODUCT_SERVICE_URL: http://product-service:8082
