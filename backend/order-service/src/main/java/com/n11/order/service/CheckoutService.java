@@ -5,6 +5,8 @@ import com.n11.common.event.OrderCreatedEvent;
 import com.n11.common.event.OrderItemPayload;
 import com.n11.order.api.dto.OrderDto;
 import com.n11.order.api.mapper.OrderMapper;
+import com.n11.order.client.AddressClient;
+import com.n11.order.client.AddressSnapshot;
 import com.n11.order.client.CartClient;
 import com.n11.order.client.CartSnapshot;
 import com.n11.order.domain.Order;
@@ -29,11 +31,13 @@ public class CheckoutService {
 
     private final OrderRepository orderRepository;
     private final CartClient cartClient;
+    private final AddressClient addressClient;
     private final OrderEventPublisher eventPublisher;
     private final OrderMapper mapper;
 
     @Transactional
-    public OrderDto checkout(Long userId, String userEmail) {
+    public OrderDto checkout(Long userId, String userEmail, Long addressId) {
+        AddressSnapshot address = addressClient.fetch(addressId);
         CartSnapshot cart = cartClient.fetchCurrent();
         String correlationId = MDC.get(CorrelationId.MDC_KEY);
 
@@ -45,6 +49,12 @@ public class CheckoutService {
                 .currency(cart.currency())
                 .correlationId(correlationId)
                 .couponCode(cart.couponCode())
+                .shippingRecipient(address.recipientName())
+                .shippingPhone(address.phone())
+                .shippingLine1(address.line1())
+                .shippingCity(address.city())
+                .shippingDistrict(address.district())
+                .shippingPostalCode(address.postalCode())
                 .build();
 
         cart.items().forEach(item -> order.addItem(OrderItem.builder()
@@ -56,8 +66,8 @@ public class CheckoutService {
 
         order.transitionTo(OrderStatus.AWAITING_PAYMENT);
         Order saved = orderRepository.save(order);
-        log.info("Order created id={} userId={} total={} {}", saved.getId(), userId,
-                saved.getTotalAmount(), saved.getCurrency());
+        log.info("Order created id={} userId={} total={} {} addressId={}",
+                saved.getId(), userId, saved.getTotalAmount(), saved.getCurrency(), addressId);
 
         List<OrderItemPayload> payloadItems = saved.getItems().stream()
                 .map(i -> new OrderItemPayload(i.getProductId(), i.getProductName(), i.getQuantity(), i.getUnitPrice()))

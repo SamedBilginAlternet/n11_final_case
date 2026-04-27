@@ -112,12 +112,14 @@ services:
       postgres: { condition: service_healthy }
       rabbitmq: { condition: service_healthy }
       cart-service: { condition: service_started }
+      auth-service: { condition: service_started }
     environment:
       <<: [*postgres-env, *rabbitmq-env, *jvm-defaults]
       SERVER_PORT: 8084
       POSTGRES_DB: orderdb
       JWT_SECRET: ${JWT_SECRET}
       CART_SERVICE_URL: http://cart-service:8083
+      AUTH_SERVICE_URL: http://auth-service:8081
     restart: unless-stopped
 
   payment-service:

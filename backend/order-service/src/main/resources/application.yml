@@ -32,6 +32,7 @@ n11:
     issuer: n11-auth
   services:
     cart-base-url: ${CART_SERVICE_URL:http://localhost:8083}
+    auth-base-url: ${AUTH_SERVICE_URL:http://localhost:8081}
 
 management:
   endpoints:

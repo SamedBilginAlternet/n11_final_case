@@ -15,6 +15,32 @@ public record OrderDto(
         String currency,
         List<OrderItemDto> items,
         String failureReason,
+        ShippingDto shipping,
+        TrackingDto tracking,
+        TimelineDto timeline,
         Instant createdAt,
         Instant updatedAt
-) {}
+) {
+    public record ShippingDto(
+            String recipient,
+            String phone,
+            String line1,
+            String city,
+            String district,
+            String postalCode
+    ) {}
+
+    public record TrackingDto(
+            String carrier,
+            String trackingNumber
+    ) {}
+
+    public record TimelineDto(
+            Instant placedAt,
+            Instant confirmedAt,
+            Instant processingAt,
+            Instant shippedAt,
+            Instant deliveredAt,
+            Instant cancelledAt
+    ) {}
+}

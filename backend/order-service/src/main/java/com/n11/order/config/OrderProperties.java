@@ -8,5 +8,5 @@ public record OrderProperties(
         Services services
 ) {
     public record Jwt(String secret, String issuer) {}
-    public record Services(String cartBaseUrl) {}
+    public record Services(String cartBaseUrl, String authBaseUrl) {}
 }
