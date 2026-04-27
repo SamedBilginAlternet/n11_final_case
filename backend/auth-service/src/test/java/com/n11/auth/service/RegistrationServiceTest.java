@@ -6,7 +6,6 @@ import com.n11.auth.api.mapper.UserMapper;
 import com.n11.auth.domain.Role;
 import com.n11.auth.domain.User;
 import com.n11.auth.exception.EmailAlreadyTakenException;
-import com.n11.auth.messaging.UserEventPublisher;
 import com.n11.auth.repository.UserRepository;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
@@ -15,7 +14,6 @@ import org.mockito.InjectMocks;
 import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
 import org.springframework.security.crypto.password.PasswordEncoder;
-import org.springframework.transaction.support.TransactionSynchronizationManager;
 
 import java.time.Instant;
 
@@ -33,41 +31,35 @@ class RegistrationServiceTest {
     @Mock UserRepository userRepository;
     @Mock PasswordEncoder passwordEncoder;
     @Mock UserMapper userMapper;
-    @Mock UserEventPublisher eventPublisher;
 
     @InjectMocks RegistrationService service;
 
     @Test
     void persistsHashedUserAndReturnsDto() {
-        TransactionSynchronizationManager.initSynchronization();
-        try {
-            RegisterRequest request = new RegisterRequest("Foo@Bar.COM ", "supersecret", " Foo Bar ");
-            when(userRepository.existsByEmailIgnoreCase("foo@bar.com")).thenReturn(false);
-            when(passwordEncoder.encode("supersecret")).thenReturn("HASHED");
-            when(userRepository.save(any(User.class))).thenAnswer(inv -> {
-                User u = inv.getArgument(0);
-                u.setId(42L);
-                u.setCreatedAt(Instant.now());
-                u.setUpdatedAt(Instant.now());
-                return u;
-            });
-            UserDto expected = new UserDto(42L, "foo@bar.com", "Foo Bar", Role.USER, Instant.now());
-            when(userMapper.toDto(any(User.class))).thenReturn(expected);
+        RegisterRequest request = new RegisterRequest("Foo@Bar.COM ", "supersecret", " Foo Bar ");
+        when(userRepository.existsByEmailIgnoreCase("foo@bar.com")).thenReturn(false);
+        when(passwordEncoder.encode("supersecret")).thenReturn("HASHED");
+        when(userRepository.save(any(User.class))).thenAnswer(inv -> {
+            User u = inv.getArgument(0);
+            u.setId(42L);
+            u.setCreatedAt(Instant.now());
+            u.setUpdatedAt(Instant.now());
+            return u;
+        });
+        UserDto expected = new UserDto(42L, "foo@bar.com", "Foo Bar", Role.USER, Instant.now());
+        when(userMapper.toDto(any(User.class))).thenReturn(expected);
 
-            UserDto actual = service.register(request);
+        UserDto actual = service.register(request);
 
-            assertThat(actual).isEqualTo(expected);
-            ArgumentCaptor<User> captor = ArgumentCaptor.forClass(User.class);
-            verify(userRepository).save(captor.capture());
-            User saved = captor.getValue();
-            assertThat(saved.getEmail()).isEqualTo("foo@bar.com");
-            assertThat(saved.getPasswordHash()).isEqualTo("HASHED");
-            assertThat(saved.getFullName()).isEqualTo("Foo Bar");
-            assertThat(saved.getRole()).isEqualTo(Role.USER);
-            assertThat(saved.isEnabled()).isTrue();
-        } finally {
-            TransactionSynchronizationManager.clear();
-        }
+        assertThat(actual).isEqualTo(expected);
+        ArgumentCaptor<User> captor = ArgumentCaptor.forClass(User.class);
+        verify(userRepository).save(captor.capture());
+        User saved = captor.getValue();
+        assertThat(saved.getEmail()).isEqualTo("foo@bar.com");
+        assertThat(saved.getPasswordHash()).isEqualTo("HASHED");
+        assertThat(saved.getFullName()).isEqualTo("Foo Bar");
+        assertThat(saved.getRole()).isEqualTo(Role.USER);
+        assertThat(saved.isEnabled()).isTrue();
     }
 
     @Test
