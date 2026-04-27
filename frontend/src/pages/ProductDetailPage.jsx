@@ -3,6 +3,7 @@ import { useParams } from 'react-router-dom';
 import { api } from '../api/client.js';
 import { useCart } from '../state/CartContext.jsx';
 import RatingStars from '../components/product/RatingStars.jsx';
+import ReviewsSection from '../components/product/ReviewsSection.jsx';
 import { formatCurrency } from '../utils/format.js';
 
 export default function ProductDetailPage() {
@@ -39,7 +40,12 @@ export default function ProductDetailPage() {
     }
   }
 
+  function refreshAggregate() {
+    api.get(`/api/products/slug/${slug}`).then((res) => setProduct(res.data)).catch(() => {});
+  }
+
   return (
+    <div className="space-y-8">
     <div className="grid gap-6 lg:grid-cols-2">
       <div className="card overflow-hidden">
         {product.imageUrl ? (
@@ -85,6 +91,9 @@ export default function ProductDetailPage() {
           </button>
         </div>
       </div>
+    </div>
+
+    <ReviewsSection productId={product.id} onAggregateChange={refreshAggregate} />
     </div>
   );
 }
