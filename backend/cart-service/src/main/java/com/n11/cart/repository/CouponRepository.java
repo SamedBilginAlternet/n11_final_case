@@ -1,6 +1,8 @@
 package com.n11.cart.repository;
 
 import com.n11.cart.domain.Coupon;
+import org.springframework.cache.annotation.CacheEvict;
+import org.springframework.cache.annotation.Cacheable;
 import org.springframework.data.jpa.repository.JpaRepository;
 import org.springframework.data.jpa.repository.Modifying;
 import org.springframework.data.jpa.repository.Query;
@@ -10,6 +12,11 @@ import java.util.Optional;
 
 public interface CouponRepository extends JpaRepository<Coupon, Long> {
 
+    // Cached by uppercased code so 'KUPON100' and 'kupon100' share an entry.
+    // unless='#result == null': empty-optional misses don't pollute cache with junk lookups.
+    @Cacheable(cacheNames = "coupons:byCode",
+               key = "#code.toUpperCase()",
+               unless = "#result == null or !#result.isPresent()")
     Optional<Coupon> findByCodeIgnoreCase(String code);
 
     /**
@@ -18,6 +25,7 @@ public interface CouponRepository extends JpaRepository<Coupon, Long> {
      * or already at max_redemptions.
      */
     @Modifying
+    @CacheEvict(cacheNames = "coupons:byCode", key = "#code.toUpperCase()")
     @Query("""
             UPDATE Coupon c
                SET c.redemptions = c.redemptions + 1
@@ -32,6 +40,7 @@ public interface CouponRepository extends JpaRepository<Coupon, Long> {
      * OrderCancelled deliveries can't drive the counter negative.
      */
     @Modifying
+    @CacheEvict(cacheNames = "coupons:byCode", key = "#code.toUpperCase()")
     @Query("""
             UPDATE Coupon c
                SET c.redemptions = c.redemptions - 1

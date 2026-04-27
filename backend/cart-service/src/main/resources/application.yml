@@ -20,6 +20,18 @@ spring:
     port: ${RABBITMQ_PORT:5672}
     username: ${RABBITMQ_USER:guest}
     password: ${RABBITMQ_PASSWORD:guest}
+  data:
+    redis:
+      host: ${REDIS_HOST:localhost}
+      port: ${REDIS_PORT:6379}
+      timeout: 1s
+  cache:
+    type: redis
+    redis:
+      time-to-live: 60s
+      cache-null-values: false
+      use-key-prefix: true
+      key-prefix: "cart:"
 
 n11:
   jwt:
