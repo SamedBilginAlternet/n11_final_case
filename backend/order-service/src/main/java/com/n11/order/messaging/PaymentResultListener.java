@@ -63,7 +63,8 @@ public class PaymentResultListener {
             orderRepository.save(order);
             log.warn("Order {} → CANCELLED (reason={})", order.getId(), event.reason());
             publisher.publishOrderCancelled(OrderCancelledEvent.of(
-                    order.getId(), order.getUserId(), order.getUserEmail(), event.reason(), event.correlationId()));
+                    order.getId(), order.getUserId(), order.getUserEmail(), event.reason(),
+                    order.getCouponCode(), event.correlationId()));
         });
     }
 

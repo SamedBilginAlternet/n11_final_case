@@ -44,6 +44,7 @@ public class CheckoutService {
                 .totalAmount(cart.totalAmount())
                 .currency(cart.currency())
                 .correlationId(correlationId)
+                .couponCode(cart.couponCode())
                 .build();
 
         cart.items().forEach(item -> order.addItem(OrderItem.builder()
@@ -63,7 +64,7 @@ public class CheckoutService {
                 .toList();
         OrderCreatedEvent event = OrderCreatedEvent.of(
                 saved.getId(), userId, userEmail, saved.getTotalAmount(), saved.getCurrency(),
-                payloadItems, correlationId);
+                payloadItems, saved.getCouponCode(), correlationId);
 
         TransactionSynchronizationManager.registerSynchronization(new TransactionSynchronization() {
             @Override

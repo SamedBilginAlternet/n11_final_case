@@ -7,9 +7,12 @@ public record CartSnapshot(
         Long id,
         Long userId,
         List<CartItem> items,
+        BigDecimal subtotal,
+        BigDecimal totalDiscount,
         BigDecimal totalAmount,
         String currency,
-        Integer totalQuantity
+        Integer totalQuantity,
+        String couponCode
 ) {
     public record CartItem(
             Long id,

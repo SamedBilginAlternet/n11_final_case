@@ -44,6 +44,9 @@ public class Order {
     @Column(name = "correlation_id", length = 64)
     private String correlationId;
 
+    @Column(name = "coupon_code", length = 40)
+    private String couponCode;
+
     @Column(name = "created_at", nullable = false, updatable = false)
     private Instant createdAt;
 
