@@ -160,6 +160,8 @@ services:
       SERVER_PORT: 8087
       POSTGRES_DB: chatbotdb
       CHATBOT_PROVIDER: ${CHATBOT_PROVIDER:-MOCK}
+      GROQ_API_KEY: ${GROQ_API_KEY:-}
+      GROQ_MODEL: ${GROQ_MODEL:-llama-3.3-70b-versatile}
       ANTHROPIC_API_KEY: ${ANTHROPIC_API_KEY:-}
       ANTHROPIC_MODEL: ${ANTHROPIC_MODEL:-claude-sonnet-4-6}
       PRODUCT_SERVICE_URL: http://product-service:8082
