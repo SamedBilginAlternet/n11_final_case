@@ -1,10 +1,10 @@
 # n11 Final Case — E-Ticaret
 
 Spring Boot 3.3 / Java 21 **8 mikroservis** (auth, product, cart, order, payment, notification,
-**chatbot (Anthropic Claude)** ve gateway), RabbitMQ üzerinde **choreography saga**, JWT
-auth, Iyzico ödeme entegrasyonu, **n11 magenta** temalı React + Vite + Tailwind frontend
-(component-driven, mock-data backed) ve **GitHub Actions → AWS Elastic Beanstalk + ECR +
-RDS** deploy boru hattı.
+**chatbot (Groq / Claude)** ve gateway), RabbitMQ üzerinde **choreography saga**, JWT auth,
+Iyzico ödeme entegrasyonu, **n11 magenta** temalı React + Vite + Tailwind frontend
+(component-driven, mock-data backed) ve **GitHub Actions → DigitalOcean droplet + GHCR**
+deploy boru hattı (her deploy'da Slack bildirimi).
 
 | | |
 |---|---|
@@ -12,9 +12,9 @@ RDS** deploy boru hattı.
 | **Mesajlaşma** | RabbitMQ 3.13 — topic exchange, durable queues, JSON message converter |
 | **Auth** | JJWT 0.12.6 HS256, BCrypt, gateway-relayed Bearer header |
 | **Ödeme** | iyzipay-java 2.0.65 (sandbox/prod toggle); offline `MockPaymentGateway` fallback |
-| **AI Asistan** | Anthropic Claude `/v1/messages` (model claude-sonnet-4-6) + `MockChatProvider` fallback; ürün katalog grounding ile RAG |
+| **AI Asistan** | Pluggable provider — **Groq** (free, OpenAI-compatible, default) / **Anthropic Claude** / **Mock**; ürün katalog grounding ile RAG |
 | **Frontend** | React 18, Vite 5, Tailwind 3 (n11 magenta tema), react-router 6, axios, react-hot-toast; floating sticky chatbot |
-| **DevOps** | Docker Compose, Jib, GitHub Actions, AWS Elastic Beanstalk Multi-Container, AWS ECR, Slack incoming webhook |
+| **DevOps** | Docker Compose, Jib, GitHub Actions, **DigitalOcean droplet** (SSH deploy), **GHCR** (free image registry), Caddy reverse proxy + auto-TLS, Slack incoming webhook |
 | **Test** | JUnit 5 + Mockito + Testcontainers (PostgreSQL & RabbitMQ) |
 
 ## İçindekiler
@@ -26,24 +26,24 @@ RDS** deploy boru hattı.
 - [Test](#test)
 - [API Dokümantasyonu](#api-dokümantasyonu)
 - [CI/CD](#cicd)
-- [AWS Deployment](#aws-deployment)
+- [Deployment](#deployment)
 - [Klasör Yapısı](#klasör-yapısı)
 
 > Detaylı dokümantasyon `docs/` altındadır:
 > - [`docs/architecture.md`](docs/architecture.md) — mimari diyagram + tasarım kararları
 > - [`docs/saga.md`](docs/saga.md) — saga waterfall, compensation, idempotency
 > - [`docs/cicd.md`](docs/cicd.md) — GitHub Actions ↔ Jenkins karşılaştırması
-> - [`docs/aws.md`](docs/aws.md) — AWS playbook (EB + RDS + ECR)
+> - [`docs/deployment.md`](docs/deployment.md) — DigitalOcean droplet playbook (free-tier friendly, ücretsiz Groq AI ile)
 
 ## Mimari
 
 ```
-browser → frontend (nginx) → api-gateway → { auth, product, cart, order, payment, chatbot }
-                                   │
-                                   ├─► PostgreSQL  (per-service DB)
-                                   ├─► RabbitMQ    (saga.exchange / topic)
-                                   ├─► Anthropic   (chatbot-service → Claude API)
-                                   └─► Slack       (notification-service webhook)
+browser → Caddy (TLS) → frontend (nginx) → api-gateway → { auth, product, cart, order, payment, chatbot }
+                                                  │
+                                                  ├─► PostgreSQL  (per-service DB)
+                                                  ├─► RabbitMQ    (saga.exchange / topic)
+                                                  ├─► Groq/Claude (chatbot-service AI)
+                                                  └─► Slack       (notification-service webhook)
 ```
 
 Detaylı diyagram: [`docs/architecture.md`](docs/architecture.md).
@@ -110,6 +110,23 @@ IYZICO_BASE_URL=https://sandbox-api.iyzipay.com \
 docker compose up --build
 ```
 
+### Chatbot AI provider
+
+Varsayılan `CHATBOT_PROVIDER=MOCK` (anahtarsız çalışır). Üç seçenek:
+
+| Provider | Maliyet | Konfigürasyon |
+|---|---|---|
+| `MOCK` | ücretsiz | yok — Türkçe template yanıtlar |
+| `GROQ` | **ücretsiz** rate-limited | [console.groq.com](https://console.groq.com) → API key → `GROQ_API_KEY=...` |
+| `CLAUDE` | ücretli | Anthropic console → `ANTHROPIC_API_KEY=...` |
+
+```bash
+# Free Groq (önerilen)
+CHATBOT_PROVIDER=GROQ \
+GROQ_API_KEY=gsk_... \
+docker compose up --build
+```
+
 ## Test
 
 ```bash
@@ -141,23 +158,25 @@ JWT'yi kullanmak için Swagger'da "Authorize" → `Bearer <token>` olarak yapı�
 
 | Workflow | Tetikleyici | Görev |
 |---|---|---|
-| [`backend.yml`](.github/workflows/backend.yml) | `push`/`pr` (backend changes) | 8 modül için matrix `mvn verify`. main'de Jib ile GHCR push |
+| [`backend.yml`](.github/workflows/backend.yml) | `push`/`pr` (backend changes) | 9 modül için matrix `mvn verify` |
 | [`frontend.yml`](.github/workflows/frontend.yml) | `push`/`pr` (frontend changes) | npm ci → lint → vitest → vite build → dist artifact |
-| [`deploy.yml`](.github/workflows/deploy.yml) | tag `v*` | Jib → ECR, frontend Docker build → ECR, EB deploy, Slack bildirim |
+| [`deploy.yml`](.github/workflows/deploy.yml) | `push main` veya `v*` tag | Jib + Docker → GHCR; SSH ile droplet'e deploy; **her run sonunda Slack bildirimi** |
 
 Jenkins ile karşılaştırma: [`docs/cicd.md`](docs/cicd.md) — aynı pipeline'ın `Jenkinsfile`
 karşılığı + adım adım kavram eşleştirmesi.
 
-## AWS Deployment
+## Deployment
 
-[`docs/aws.md`](docs/aws.md) içinde:
-- Elastic Beanstalk multi-container Docker konfigürasyonu (`infra/aws/Dockerrun.aws.template.json`)
-- RDS PostgreSQL (multi-AZ) provisioning notları
-- IAM OIDC role for GitHub Actions
-- EB environment variables (`RDS_*`, `JWT_SECRET`, `IYZICO_*`, `SLACK_WEBHOOK_URL`)
-- Tag-driven release: `git tag v1.0.0 && git push origin v1.0.0`
+[`docs/deployment.md`](docs/deployment.md) — DigitalOcean droplet üzerinde **free-tier
+friendly** deploy boru hattı:
+- **GHCR** (free) → backend Jib + frontend Docker images
+- **Caddy** ile auto-TLS (Let's Encrypt) reverse proxy
+- `appleboy/scp-action` + `appleboy/ssh-action` ile droplet'e push
+- `infra/digitalocean/setup-droplet.sh` Ubuntu droplet'i tek komutla bootstrap eder
+- main'e her push (veya `v*` tag) → image build → SSH deploy → **Slack bildirimi**
+- DigitalOcean yeni hesap kredisi (60 gün $200) sayesinde ilk dönem ücretsiz, sonrası ~$4-6/ay
 
-Slack bildirimi: deploy başlangıcı/sonu için `secrets.SLACK_WEBHOOK_URL` ile.
+Slack bildirimi her workflow sonunda tetiklenir (`secrets.SLACK_WEBHOOK_URL`).
 
 ## Klasör Yapısı
 
@@ -167,22 +186,23 @@ n11_final_case/
 │   ├── common/                 paylaşılan event DTO'ları, saga topology, JwtParser, CorrelationId filter
 │   ├── api-gateway/            Spring Cloud Gateway
 │   ├── auth-service/           kayıt + login + JWT
-│   ├── product-service/        katalog + pagination
+│   ├── product-service/        katalog + pagination + autocomplete + ratings
 │   ├── cart-service/           sepet CRUD + saga consumer
 │   ├── order-service/          checkout + saga publisher + payment-event consumer
 │   ├── payment-service/        Iyzico + saga participant
 │   ├── notification-service/   saga fan-out → Slack
+│   ├── chatbot-service/        Groq / Claude / Mock — Türkçe AI asistan
 │   └── Dockerfile              tüm servisler için tek multi-stage build (ARG SERVICE)
 ├── frontend/                   React + Vite + Tailwind + React Router 6
-│   ├── src/{api,components,pages,state,utils}
+│   ├── src/{api,components,pages,state,utils,data}
 │   └── Dockerfile + nginx.conf
 ├── infra/
-│   ├── postgres-init/          multi-DB initdb script
-│   └── aws/                    Beanstalk Dockerrun template
+│   ├── postgres-init/          local docker-compose multi-DB initdb script
+│   └── digitalocean/           droplet bootstrap, prod compose, Caddyfile, .env.example
 ├── http/                       IntelliJ/VSCode REST Client requests
-├── docs/                       architecture, saga, cicd, aws
-├── .github/workflows/          backend.yml, frontend.yml, deploy.yml
-├── docker-compose.yml          tek komutla full stack
+├── docs/                       architecture, saga, cicd, deployment
+├── .github/workflows/          backend.yml, frontend.yml, deploy.yml (Slack notify)
+├── docker-compose.yml          tek komutla full stack (yerel geliştirme)
 └── .env.example
 ```
 
