@@ -1,20 +1,38 @@
-import { appBadges } from '../../data/footer.js';
+import { AppleIcon, GooglePlayIcon } from '../icons/BrandIcons.jsx';
+
+const BADGES = [
+  {
+    id: 'app-store',
+    href: 'https://apps.apple.com',
+    Icon: AppleIcon,
+    line1: 'Download on the',
+    line2: 'App Store',
+  },
+  {
+    id: 'google-play',
+    href: 'https://play.google.com',
+    Icon: GooglePlayIcon,
+    line1: 'GET IT ON',
+    line2: 'Google Play',
+  },
+];
 
 export default function AppBadges() {
   return (
     <div className="flex items-center gap-3">
-      {appBadges.map((badge) => (
+      {BADGES.map(({ id, href, Icon, line1, line2 }) => (
         <a
-          key={badge.id}
-          href="#"
-          className="flex items-center gap-2 rounded-md border border-gray-300 bg-white px-3 py-2 text-left hover:bg-gray-50"
+          key={id}
+          href={href}
+          target="_blank"
+          rel="noopener noreferrer"
+          aria-label={line2}
+          className="flex items-center gap-2 rounded-md bg-n11-black px-3 py-2 text-white transition-opacity hover:opacity-90"
         >
-          <span className="grid h-8 w-8 place-items-center rounded bg-n11-black text-white text-xs font-bold">
-            {badge.id === 'app-store' ? '' : '▶'}
-          </span>
+          <Icon width={22} height={22} />
           <div className="leading-tight">
-            <p className="text-[10px] uppercase text-gray-400">{badge.sub}</p>
-            <p className="text-xs font-semibold text-n11-black">{badge.label}</p>
+            <p className="text-[9px] uppercase tracking-wider opacity-80">{line1}</p>
+            <p className="text-sm font-semibold">{line2}</p>
           </div>
         </a>
       ))}
