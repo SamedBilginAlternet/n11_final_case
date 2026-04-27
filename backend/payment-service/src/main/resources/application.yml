@@ -22,6 +22,9 @@ spring:
     password: ${RABBITMQ_PASSWORD:guest}
 
 n11:
+  jwt:
+    secret: ${JWT_SECRET:dev-only-please-change-32-byte-secret-1234567890}
+    issuer: n11-auth
   iyzico:
     enabled: ${IYZICO_ENABLED:false}
     api-key: ${IYZICO_API_KEY:sandbox-test-key}
