@@ -2,26 +2,41 @@ name: deploy
 
 on:
   push:
-    tags:
-      - 'v*'
-  workflow_dispatch: {}
+    branches: [main]
+    tags: ['v*']
+  workflow_dispatch:
+    inputs:
+      image_tag:
+        description: 'Override image tag (defaults to commit SHA)'
+        required: false
 
 env:
-  AWS_REGION: ${{ vars.AWS_REGION || 'eu-west-1' }}
-  EB_APP: ${{ vars.EB_APPLICATION || 'n11-final-case' }}
-  EB_ENV: ${{ vars.EB_ENVIRONMENT || 'n11-final-case-prod' }}
-  ECR_REGISTRY: ${{ secrets.AWS_ACCOUNT_ID }}.dkr.ecr.${{ vars.AWS_REGION || 'eu-west-1' }}.amazonaws.com
+  GHCR_OWNER: ${{ github.repository_owner }}
 
 jobs:
-  build-and-push:
+  build-images:
+    name: Build & push images to GHCR
     runs-on: ubuntu-latest
     permissions:
       contents: read
-      id-token: write
+      packages: write
     outputs:
-      image_tag: ${{ steps.tag.outputs.tag }}
+      image_tag: ${{ steps.meta.outputs.image_tag }}
     steps:
       - uses: actions/checkout@v4
+
+      - name: Compute image tag
+        id: meta
+        run: |
+          if [ -n "${{ inputs.image_tag }}" ]; then
+            TAG="${{ inputs.image_tag }}"
+          elif [[ "$GITHUB_REF" == refs/tags/* ]]; then
+            TAG="${GITHUB_REF_NAME#v}"
+          else
+            TAG="${GITHUB_SHA::7}"
+          fi
+          echo "image_tag=$TAG" >> "$GITHUB_OUTPUT"
+          echo "Building tag: $TAG"
 
       - uses: actions/setup-java@v4
         with:
@@ -29,101 +44,142 @@ jobs:
           java-version: 21
           cache: maven
 
-      - name: Compute image tag
-        id: tag
-        run: echo "tag=${GITHUB_REF_NAME#v}" >> "$GITHUB_OUTPUT"
-
-      - name: Configure AWS credentials
-        uses: aws-actions/configure-aws-credentials@v4
+      - name: Login to GHCR
+        uses: docker/login-action@v3
         with:
-          role-to-assume: ${{ secrets.AWS_DEPLOY_ROLE_ARN }}
-          aws-region: ${{ env.AWS_REGION }}
+          registry: ghcr.io
+          username: ${{ github.actor }}
+          password: ${{ secrets.GITHUB_TOKEN }}
 
-      - name: Login to ECR
-        uses: aws-actions/amazon-ecr-login@v2
-
-      - name: Build & push images via Jib
+      - name: Build & push backend services via Jib
         working-directory: backend
+        env:
+          OWNER_LC: ${{ github.repository_owner }}
+          IMAGE_TAG: ${{ steps.meta.outputs.image_tag }}
         run: |
+          OWNER_LC=$(echo "$OWNER_LC" | tr '[:upper:]' '[:lower:]')
           for svc in api-gateway auth-service product-service cart-service order-service payment-service notification-service chatbot-service; do
             mvn -B -DskipTests -pl "$svc" -am package
             mvn -B -DskipTests -pl "$svc" \
-              -Djib.to.image=${{ env.ECR_REGISTRY }}/n11/${svc}:${{ steps.tag.outputs.tag }} \
+              -Djib.to.image=ghcr.io/${OWNER_LC}/${svc}:${IMAGE_TAG} \
               -Djib.to.tags=latest \
               jib:build
           done
 
       - name: Build & push frontend image
         working-directory: frontend
+        env:
+          OWNER_LC: ${{ github.repository_owner }}
+          IMAGE_TAG: ${{ steps.meta.outputs.image_tag }}
         run: |
+          OWNER_LC=$(echo "$OWNER_LC" | tr '[:upper:]' '[:lower:]')
           docker build --build-arg VITE_API_BASE_URL=/api \
-            -t ${{ env.ECR_REGISTRY }}/n11/frontend:${{ steps.tag.outputs.tag }} \
-            -t ${{ env.ECR_REGISTRY }}/n11/frontend:latest .
-          docker push ${{ env.ECR_REGISTRY }}/n11/frontend:${{ steps.tag.outputs.tag }}
-          docker push ${{ env.ECR_REGISTRY }}/n11/frontend:latest
+            -t ghcr.io/${OWNER_LC}/frontend:${IMAGE_TAG} \
+            -t ghcr.io/${OWNER_LC}/frontend:latest .
+          docker push ghcr.io/${OWNER_LC}/frontend:${IMAGE_TAG}
+          docker push ghcr.io/${OWNER_LC}/frontend:latest
 
-  deploy-eb:
-    needs: build-and-push
+  deploy-droplet:
+    name: Deploy to DigitalOcean droplet
+    needs: build-images
     runs-on: ubuntu-latest
-    permissions:
-      contents: read
-      id-token: write
+    if: ${{ secrets.DO_DROPLET_HOST != '' }}
     steps:
       - uses: actions/checkout@v4
 
-      - name: Configure AWS credentials
-        uses: aws-actions/configure-aws-credentials@v4
+      - name: Sync infra files to droplet
+        uses: appleboy/scp-action@v0.1.7
         with:
-          role-to-assume: ${{ secrets.AWS_DEPLOY_ROLE_ARN }}
-          aws-region: ${{ env.AWS_REGION }}
+          host: ${{ secrets.DO_DROPLET_HOST }}
+          username: ${{ secrets.DO_DROPLET_USER }}
+          key: ${{ secrets.DO_SSH_KEY }}
+          source: "infra/digitalocean/docker-compose.prod.yml,infra/digitalocean/Caddyfile,infra/digitalocean/postgres-init/*"
+          target: "/opt/n11"
+          strip_components: 2
 
-      - name: Render Dockerrun.aws.json
+      - name: Pull & restart on droplet
+        uses: appleboy/ssh-action@v1.0.3
         env:
-          IMAGE_TAG: ${{ needs.build-and-push.outputs.image_tag }}
-        run: |
-          mkdir -p eb
-          envsubst < infra/aws/Dockerrun.aws.template.json > eb/Dockerrun.aws.json
-          cd eb && zip -r ../bundle.zip Dockerrun.aws.json
-
-      - name: Deploy to Elastic Beanstalk
-        env:
-          IMAGE_TAG: ${{ needs.build-and-push.outputs.image_tag }}
-        run: |
-          VERSION="v-${IMAGE_TAG}-${GITHUB_RUN_NUMBER}"
-          BUCKET=${{ secrets.EB_S3_BUCKET }}
-
-          aws s3 cp bundle.zip "s3://${BUCKET}/${EB_APP}/${VERSION}.zip"
-
-          aws elasticbeanstalk create-application-version \
-            --application-name "$EB_APP" \
-            --version-label "$VERSION" \
-            --source-bundle "S3Bucket=${BUCKET},S3Key=${EB_APP}/${VERSION}.zip"
-
-          aws elasticbeanstalk update-environment \
-            --application-name "$EB_APP" \
-            --environment-name "$EB_ENV" \
-            --version-label "$VERSION"
+          IMAGE_TAG: ${{ needs.build-images.outputs.image_tag }}
+        with:
+          host: ${{ secrets.DO_DROPLET_HOST }}
+          username: ${{ secrets.DO_DROPLET_USER }}
+          key: ${{ secrets.DO_SSH_KEY }}
+          envs: IMAGE_TAG
+          script: |
+            set -euo pipefail
+            cd /opt/n11
+            chmod +x postgres-init/*.sh || true
+            export IMAGE_TAG="$IMAGE_TAG"
+            if grep -q "^IMAGE_TAG=" .env 2>/dev/null; then
+              sed -i "s|^IMAGE_TAG=.*|IMAGE_TAG=$IMAGE_TAG|" .env
+            else
+              echo "IMAGE_TAG=$IMAGE_TAG" >> .env
+            fi
+            if [ -n "${GHCR_TOKEN:-}" ]; then
+              echo "$GHCR_TOKEN" | docker login ghcr.io -u "${GHCR_OWNER:-deploy}" --password-stdin
+            fi
+            docker compose -f docker-compose.prod.yml --env-file .env pull
+            docker compose -f docker-compose.prod.yml --env-file .env up -d --remove-orphans
+            docker image prune -f
 
   notify:
-    needs: [build-and-push, deploy-eb]
+    name: Slack notify
+    needs: [build-images, deploy-droplet]
     if: always()
     runs-on: ubuntu-latest
     steps:
-      - name: Slack notification
+      - name: Post to Slack
         env:
-          STATUS: ${{ needs.deploy-eb.result }}
-          IMAGE_TAG: ${{ needs.build-and-push.outputs.image_tag }}
+          BUILD_STATUS: ${{ needs.build-images.result }}
+          DEPLOY_STATUS: ${{ needs.deploy-droplet.result }}
+          IMAGE_TAG: ${{ needs.build-images.outputs.image_tag }}
           WEBHOOK: ${{ secrets.SLACK_WEBHOOK_URL }}
         run: |
           if [ -z "$WEBHOOK" ]; then
             echo "SLACK_WEBHOOK_URL not configured — skipping"
             exit 0
           fi
-          if [ "$STATUS" = "success" ]; then
-            EMOJI=":rocket:"; TEXT="*${EB_APP}* ${IMAGE_TAG} deployed to ${EB_ENV}"
+
+          if [ "$DEPLOY_STATUS" = "success" ]; then
+            EMOJI=":rocket:"
+            HEADER="Deploy OK"
+            COLOR="good"
+          elif [ "$DEPLOY_STATUS" = "skipped" ] && [ "$BUILD_STATUS" = "success" ]; then
+            EMOJI=":package:"
+            HEADER="Images pushed (droplet not configured)"
+            COLOR="good"
           else
-            EMOJI=":x:"; TEXT="*${EB_APP}* deploy ${IMAGE_TAG} *FAILED* on ${EB_ENV}"
+            EMOJI=":x:"
+            HEADER="Deploy FAILED"
+            COLOR="danger"
           fi
-          curl -sS -X POST -H 'Content-type: application/json' \
-            --data "{\"text\":\"$EMOJI $TEXT — run #${GITHUB_RUN_NUMBER} (${GITHUB_SHA::7})\"}" \
-            "$WEBHOOK"
+
+          REPO_URL="https://github.com/${GITHUB_REPOSITORY}"
+          RUN_URL="${REPO_URL}/actions/runs/${GITHUB_RUN_ID}"
+
+          curl -sS -X POST -H 'Content-type: application/json' --data @- "$WEBHOOK" <<EOF
+          {
+            "attachments": [{
+              "color": "$COLOR",
+              "blocks": [
+                { "type": "header", "text": { "type": "plain_text", "text": "$EMOJI n11-final-case — $HEADER" } },
+                {
+                  "type": "section",
+                  "fields": [
+                    { "type": "mrkdwn", "text": "*Tag:*\n\`$IMAGE_TAG\`" },
+                    { "type": "mrkdwn", "text": "*Ref:*\n\`${GITHUB_REF_NAME}\`" },
+                    { "type": "mrkdwn", "text": "*Build:*\n$BUILD_STATUS" },
+                    { "type": "mrkdwn", "text": "*Deploy:*\n$DEPLOY_STATUS" }
+                  ]
+                },
+                {
+                  "type": "context",
+                  "elements": [
+                    { "type": "mrkdwn", "text": "<$RUN_URL|Run #${GITHUB_RUN_NUMBER}> · <${REPO_URL}/commit/${GITHUB_SHA}|${GITHUB_SHA:0:7}> · ${GITHUB_ACTOR}" }
+                  ]
+                }
+              ]
+            }]
+          }
+          EOF
