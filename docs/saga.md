@@ -5,7 +5,7 @@
 | | |
 |---|---|
 | Exchange | `saga.exchange` (topic, durable) |
-| Routing keys | `user.registered`, `order.created`, `payment.succeeded`, `payment.failed`, `order.confirmed`, `order.cancelled` |
+| Routing keys | `order.created`, `payment.succeeded`, `payment.failed`, `order.confirmed`, `order.cancelled` |
 
 ## Queue Bindings
 
@@ -15,24 +15,10 @@
 | `order.payment-succeeded.q` | `payment.succeeded` | order-service |
 | `order.payment-failed.q` | `payment.failed` | order-service |
 | `cart.order-confirmed.q` | `order.confirmed` | cart-service |
-| `notification.fanout.q` | `user.registered`, `order.confirmed`, `order.cancelled`, `payment.failed` | notification-service |
 
 ## Akışlar
 
-### 1. UserRegistrationSaga
-
-```
-auth.register()
- ├─► users.insert
- └─► afterCommit
-      └─► publish "user.registered"
-            │
-            ▼
-       notification-service.onUserRegistered()
-        └─► Slack: ":wave: New user registered: <email>"
-```
-
-### 2. CheckoutSaga (mutluyolcu)
+### CheckoutSaga (mutluyolcu)
 
 ```
 POST /api/orders/checkout
@@ -56,14 +42,11 @@ order-service
           ├─► orders.update (CONFIRMED)
           └─► publish "order.confirmed" {orderId, userId, userEmail}
                 │
-                ├──► cart-service.onOrderConfirmed()
-                │     └─► cart.items.clear()
-                │
-                └──► notification-service.onOrderConfirmed()
-                      └─► Slack: ":white_check_mark: Order #<id> confirmed for <email>"
+                └──► cart-service.onOrderConfirmed()
+                      └─► cart.items.clear()
 ```
 
-### 3. CheckoutSaga (compensation: ödeme başarısız)
+### CheckoutSaga (compensation: ödeme başarısız)
 
 ```
 POST /api/orders/checkout
@@ -81,14 +64,16 @@ payment-service
   order-service.onPaymentFailed()
    ├─► orders.update (CANCELLED, failure_reason)
    └─► publish "order.cancelled" {orderId, reason}
-         │
-         └──► notification-service.onOrderCancelled()
-               └─► Slack: ":x: Order #<id> cancelled — <reason>"
 ```
 
-> Burada compensating action sepeti **boşaltmamak** — kullanıcı tekrar deneyebilir. Eğer
-> ürün rezervasyonu olsaydı (örn. inventory-service), `order.cancelled` üzerinden stok
-> serbest bırakma adımı eklenirdi.
+> Compensating action sepeti **boşaltmaz** — kullanıcı tekrar deneyebilir. Eğer ürün
+> rezervasyonu olsaydı (örn. inventory-service), `order.cancelled` üzerinden stok serbest
+> bırakma adımı eklenirdi.
+>
+> `order.confirmed` ve `order.cancelled` event'leri yayınlanmaya devam eder; ileride
+> bağlanacak consumer'lar (e-posta, in-app notification, analytics) için topic-exchange
+> üzerinden hazır beklerler. Slack'e *runtime* bildirim atan bir consumer **yoktur** —
+> Slack sadece CI/CD deploy bildirimleri için kullanılır (`deploy.yml`).
 
 ## Idempotency ve at-least-once
 
@@ -103,5 +88,5 @@ payment-service
 - HTTP isteği `X-Correlation-Id` header üretir → `MDC[correlationId]` olarak set edilir.
 - `OrderCreatedEvent` payload'ında `correlationId` taşınır.
 - Tüketici servis MDC'ye geri koyar → log satırlarında aynı ID görünür.
-- Bir `POST /api/orders/checkout` çağrısı 5 servisin log'larında tek bir `[cid]` ile takip
+- Bir `POST /api/orders/checkout` çağrısı 4 servisin log'larında tek bir `[cid]` ile takip
   edilebilir.
