@@ -1,4 +1,5 @@
 import { Link } from 'react-router-dom';
+import { Truck } from 'lucide-react';
 import HeartButton from './product/HeartButton.jsx';
 import RatingStars from './product/RatingStars.jsx';
 import { formatCurrency } from '../utils/format.js';
@@ -22,7 +23,8 @@ export default function ProductCard({ product, badge = 'KUPONLU ÜRÜN', campaig
           )}
         </div>
 
-        <div className="flex w-full items-center justify-center bg-n11-black py-1.5 text-[11px] font-bold uppercase tracking-wider text-white">
+        <div className="flex w-full items-center justify-center gap-1.5 bg-n11-black py-1.5 text-[11px] font-bold uppercase tracking-wider text-white">
+          <Truck size={14} strokeWidth={2} aria-hidden />
           ÜCRETSİZ KARGO
         </div>
 
