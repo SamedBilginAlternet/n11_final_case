@@ -3,6 +3,7 @@ package com.n11.auth.api;
 import com.n11.auth.exception.EmailAlreadyTakenException;
 import com.n11.common.correlation.CorrelationId;
 import com.n11.common.web.ApiError;
+import jakarta.persistence.EntityNotFoundException;
 import jakarta.servlet.http.HttpServletRequest;
 import org.slf4j.MDC;
 import org.springframework.http.HttpStatus;
@@ -22,6 +23,13 @@ public class GlobalExceptionHandler {
     public ResponseEntity<ApiError> handleEmailTaken(EmailAlreadyTakenException ex, HttpServletRequest req) {
         return ResponseEntity.status(HttpStatus.CONFLICT)
                 .body(ApiError.of(409, "Conflict", ex.getMessage(), req.getRequestURI(), MDC.get(CorrelationId.MDC_KEY)));
+    }
+
+    @ExceptionHandler(EntityNotFoundException.class)
+    public ResponseEntity<ApiError> handleNotFound(EntityNotFoundException ex, HttpServletRequest req) {
+        return ResponseEntity.status(HttpStatus.NOT_FOUND)
+                .body(ApiError.of(404, "Not Found", ex.getMessage(),
+                        req.getRequestURI(), MDC.get(CorrelationId.MDC_KEY)));
     }
 
     @ExceptionHandler(BadCredentialsException.class)
