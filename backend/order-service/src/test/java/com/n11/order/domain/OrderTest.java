@@ -15,6 +15,7 @@ class OrderTest {
         order.transitionTo(OrderStatus.AWAITING_PAYMENT);
         order.transitionTo(OrderStatus.CONFIRMED);
         assertThat(order.getStatus()).isEqualTo(OrderStatus.CONFIRMED);
+        assertThat(order.getConfirmedAt()).isNotNull();
     }
 
     @Test
@@ -23,13 +24,43 @@ class OrderTest {
         order.transitionTo(OrderStatus.AWAITING_PAYMENT);
         order.transitionTo(OrderStatus.CANCELLED);
         assertThat(order.getStatus()).isEqualTo(OrderStatus.CANCELLED);
+        assertThat(order.getCancelledAt()).isNotNull();
     }
 
     @Test
-    void rejectsConfirmedToAnything() {
+    void runsThroughFullFulfilmentLifecycle() {
         Order order = newOrder();
         order.transitionTo(OrderStatus.AWAITING_PAYMENT);
         order.transitionTo(OrderStatus.CONFIRMED);
+        order.transitionTo(OrderStatus.PROCESSING);
+        order.transitionTo(OrderStatus.SHIPPED);
+        order.transitionTo(OrderStatus.DELIVERED);
+        assertThat(order.getStatus()).isEqualTo(OrderStatus.DELIVERED);
+        assertThat(order.getProcessingAt()).isNotNull();
+        assertThat(order.getShippedAt()).isNotNull();
+        assertThat(order.getDeliveredAt()).isNotNull();
+    }
+
+    @Test
+    void rejectsDeliveredToAnything() {
+        Order order = newOrder();
+        order.transitionTo(OrderStatus.AWAITING_PAYMENT);
+        order.transitionTo(OrderStatus.CONFIRMED);
+        order.transitionTo(OrderStatus.PROCESSING);
+        order.transitionTo(OrderStatus.SHIPPED);
+        order.transitionTo(OrderStatus.DELIVERED);
+
+        assertThatThrownBy(() -> order.transitionTo(OrderStatus.CANCELLED))
+                .isInstanceOf(IllegalStateException.class);
+    }
+
+    @Test
+    void rejectsCancelOnceShipped() {
+        Order order = newOrder();
+        order.transitionTo(OrderStatus.AWAITING_PAYMENT);
+        order.transitionTo(OrderStatus.CONFIRMED);
+        order.transitionTo(OrderStatus.PROCESSING);
+        order.transitionTo(OrderStatus.SHIPPED);
 
         assertThatThrownBy(() -> order.transitionTo(OrderStatus.CANCELLED))
                 .isInstanceOf(IllegalStateException.class);
@@ -43,9 +74,8 @@ class OrderTest {
     }
 
     private Order newOrder() {
-        Order o = Order.builder()
+        return Order.builder()
                 .userId(1L).userEmail("u@n11.local").totalAmount(BigDecimal.TEN).currency("TRY")
                 .status(OrderStatus.PENDING).build();
-        return o;
     }
 }
