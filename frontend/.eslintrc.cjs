@@ -13,4 +13,10 @@ module.exports = {
   rules: {
     'react/prop-types': 'off',
   },
+  overrides: [
+    {
+      files: ['**/*.test.{js,jsx}', 'src/test/**'],
+      env: { jest: true },
+    },
+  ],
 };
