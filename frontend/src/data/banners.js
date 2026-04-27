@@ -28,8 +28,10 @@ export const heroBanners = [
   },
 ];
 
+import { ShoppingBag } from 'lucide-react';
+
 export const dailyNews = {
-  emoji: '🛍️',
+  Icon: ShoppingBag,
   text: 'Günün Haberi: 11.11 Süper Fırsat haftası başladı — sepette %30 ekstra indirim',
   endsAt: '2026-04-30T23:59:59',
 };
