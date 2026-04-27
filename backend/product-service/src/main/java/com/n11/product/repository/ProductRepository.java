@@ -16,8 +16,9 @@ public interface ProductRepository extends JpaRepository<Product, Long> {
     @Query("""
             select p from Product p
             where (:categoryId is null or p.category.id = :categoryId)
-              and (:q is null or lower(p.name) like lower(concat('%', :q, '%'))
-                              or lower(p.description) like lower(concat('%', :q, '%')))
+              and (cast(:q as string) is null
+                   or lower(p.name) like lower(concat('%', cast(:q as string), '%'))
+                   or lower(p.description) like lower(concat('%', cast(:q as string), '%')))
            """)
     Page<Product> search(Long categoryId, String q, Pageable pageable);
 
