@@ -62,7 +62,7 @@ jobs:
           IMAGE_TAG: ${{ steps.meta.outputs.image_tag }}
         run: |
           OWNER_LC=$(echo "$OWNER_LC" | tr '[:upper:]' '[:lower:]')
-          for svc in api-gateway auth-service product-service cart-service order-service payment-service notification-service chatbot-service; do
+          for svc in api-gateway auth-service product-service cart-service order-service payment-service chatbot-service; do
             echo "::group::Jib build $svc"
             mvn -B -DskipTests -pl "$svc" \
               -Djib.to.image=ghcr.io/${OWNER_LC}/${svc}:${IMAGE_TAG} \
