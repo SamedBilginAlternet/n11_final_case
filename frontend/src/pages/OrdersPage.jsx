@@ -19,10 +19,12 @@ const STATUS_TONES = {
 export default function OrdersPage() {
   const [orders, setOrders] = useState([]);
   const [loading, setLoading] = useState(true);
-  const pollRef = useRef(null);
+  const ordersRef = useRef(orders);
+  ordersRef.current = orders;
 
   useEffect(() => {
     let cancelled = false;
+
     async function load() {
       try {
         const { data } = await api.get('/api/orders');
@@ -31,20 +33,21 @@ export default function OrdersPage() {
         if (!cancelled) setLoading(false);
       }
     }
+
     load();
 
-    const stillPending = orders.some((o) => o.status === 'AWAITING_PAYMENT' || o.status === 'PENDING');
-    if (stillPending || orders.length === 0) {
-      pollRef.current = setInterval(load, 2500);
-    }
+    const interval = setInterval(() => {
+      const stillPending = ordersRef.current.some(
+        (o) => o.status === 'AWAITING_PAYMENT' || o.status === 'PENDING',
+      );
+      if (stillPending) load();
+    }, 2500);
 
     return () => {
       cancelled = true;
-      if (pollRef.current) clearInterval(pollRef.current);
+      clearInterval(interval);
     };
-    // poll only while there's pending work — re-evaluate when orders changes
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [orders.length, orders.some((o) => o.status === 'AWAITING_PAYMENT' || o.status === 'PENDING')]);
+  }, []);
 
   if (loading) return <div className="card h-32 animate-pulse bg-slate-100" />;
   if (orders.length === 0) return <p className="text-slate-500">Henüz sipariş vermedin.</p>;
