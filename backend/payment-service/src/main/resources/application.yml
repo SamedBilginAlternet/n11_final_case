@@ -1,0 +1,46 @@
+server:
+  port: ${SERVER_PORT:8085}
+
+spring:
+  application:
+    name: payment-service
+  datasource:
+    url: jdbc:postgresql://${POSTGRES_HOST:localhost}:${POSTGRES_PORT:5432}/${POSTGRES_DB:paymentdb}
+    username: ${POSTGRES_USER:n11}
+    password: ${POSTGRES_PASSWORD:n11pw}
+  jpa:
+    hibernate:
+      ddl-auto: validate
+    open-in-view: false
+  flyway:
+    enabled: true
+    baseline-on-migrate: true
+  rabbitmq:
+    host: ${RABBITMQ_HOST:localhost}
+    port: ${RABBITMQ_PORT:5672}
+    username: ${RABBITMQ_USER:guest}
+    password: ${RABBITMQ_PASSWORD:guest}
+
+n11:
+  iyzico:
+    enabled: ${IYZICO_ENABLED:false}
+    api-key: ${IYZICO_API_KEY:sandbox-test-key}
+    secret-key: ${IYZICO_SECRET_KEY:sandbox-test-secret}
+    base-url: ${IYZICO_BASE_URL:https://sandbox-api.iyzipay.com}
+    failure:
+      simulate: ${PAYMENT_SIMULATE_FAILURE:false}
+      rate: ${PAYMENT_FAILURE_RATE:0.0}
+
+management:
+  endpoints:
+    web:
+      exposure:
+        include: health,info,metrics
+
+springdoc:
+  swagger-ui:
+    path: /swagger-ui.html
+
+logging:
+  pattern:
+    level: "%5p [%X{correlationId:-}]"
