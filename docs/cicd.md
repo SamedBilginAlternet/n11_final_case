@@ -37,7 +37,7 @@ pipeline {
   stages {
     stage('Backend matrix') {
       matrix {
-        axes { axis { name 'MODULE'; values 'common','auth-service','product-service','cart-service','order-service','payment-service','notification-service','api-gateway' } }
+        axes { axis { name 'MODULE'; values 'common','auth-service','product-service','cart-service','order-service','payment-service','chatbot-service','api-gateway' } }
         stages {
           stage('verify') {
             steps {
@@ -65,7 +65,7 @@ pipeline {
           sh 'echo $P | docker login ghcr.io -u $U --password-stdin'
           dir('backend') {
             sh '''
-              for s in api-gateway auth-service product-service cart-service order-service payment-service notification-service; do
+              for s in api-gateway auth-service product-service cart-service order-service payment-service chatbot-service; do
                 mvn -B -DskipTests -pl $s -am package
                 mvn -B -DskipTests -pl $s -Djib.to.image=ghcr.io/n11/${s}:${BUILD_NUMBER} jib:build
               done
