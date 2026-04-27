@@ -36,6 +36,7 @@ class PaymentServiceTest {
         return OrderCreatedEvent.of(7L, 1L, "u@n11.local",
                 new BigDecimal("100"), "TRY",
                 List.of(new OrderItemPayload(1L, "X", 1, new BigDecimal("100"))),
+                null,
                 "cid");
     }
 
