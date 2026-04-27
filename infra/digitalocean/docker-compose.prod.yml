@@ -112,17 +112,6 @@ services:
       IYZICO_BASE_URL: ${IYZICO_BASE_URL:-https://sandbox-api.iyzipay.com}
     restart: unless-stopped
 
-  notification-service:
-    image: ghcr.io/${GHCR_OWNER}/notification-service:${IMAGE_TAG:-latest}
-    depends_on:
-      rabbitmq: { condition: service_healthy }
-    environment:
-      <<: [*rabbitmq-env, *jvm-defaults]
-      SERVER_PORT: 8086
-      SLACK_ENABLED: ${SLACK_ENABLED:-true}
-      SLACK_WEBHOOK_URL: ${SLACK_WEBHOOK_URL}
-    restart: unless-stopped
-
   chatbot-service:
     image: ghcr.io/${GHCR_OWNER}/chatbot-service:${IMAGE_TAG:-latest}
     depends_on:

@@ -131,21 +131,6 @@ services:
       IYZICO_BASE_URL: ${IYZICO_BASE_URL:-https://sandbox-api.iyzipay.com}
     ports: ["8085:8085"]
 
-  notification-service:
-    build:
-      context: ./backend
-      args:
-        SERVICE: notification-service
-    image: n11/notification-service:1.0.0
-    depends_on:
-      rabbitmq: { condition: service_healthy }
-    environment:
-      <<: [*rabbitmq-env, *jvm-defaults]
-      SERVER_PORT: 8086
-      SLACK_ENABLED: ${SLACK_ENABLED:-false}
-      SLACK_WEBHOOK_URL: ${SLACK_WEBHOOK_URL:-}
-    ports: ["8086:8086"]
-
   chatbot-service:
     build:
       context: ./backend
