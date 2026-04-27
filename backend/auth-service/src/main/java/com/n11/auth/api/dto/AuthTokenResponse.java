@@ -7,5 +7,7 @@ public record AuthTokenResponse(
         String tokenType,
         long expiresIn,
         Instant issuedAt,
+        String refreshToken,
+        long refreshExpiresIn,
         UserDto user
 ) {}

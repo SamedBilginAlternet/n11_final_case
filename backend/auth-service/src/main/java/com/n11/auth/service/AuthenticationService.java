@@ -21,10 +21,11 @@ public class AuthenticationService {
     private final UserRepository userRepository;
     private final PasswordEncoder passwordEncoder;
     private final JwtTokenProvider tokenProvider;
+    private final RefreshTokenService refreshTokenService;
     private final UserMapper userMapper;
 
-    @Transactional(readOnly = true)
-    public AuthTokenResponse login(LoginRequest request) {
+    @Transactional
+    public AuthTokenResponse login(LoginRequest request, String userAgent, String ip) {
         User user = userRepository.findByEmailIgnoreCase(request.email().trim().toLowerCase())
                 .orElseThrow(() -> new BadCredentialsException("Invalid credentials"));
 
@@ -38,14 +39,41 @@ public class AuthenticationService {
             throw new BadCredentialsException("Invalid credentials");
         }
 
-        var issued = tokenProvider.issue(user);
-        log.info("Issued JWT for userId={} ttl={}s", user.getId(), issued.expiresInSeconds());
+        return issueTokens(user, userAgent, ip);
+    }
+
+    @Transactional
+    public AuthTokenResponse refresh(String presentedRefreshToken, String userAgent, String ip) {
+        RefreshTokenService.RotateResult rotated =
+                refreshTokenService.rotate(presentedRefreshToken, userAgent, ip);
+        JwtTokenProvider.IssuedToken access = tokenProvider.issue(rotated.user());
+
+        log.info("Rotated refresh token for userId={}", rotated.user().getId());
+        return new AuthTokenResponse(
+                access.token(),
+                "Bearer",
+                access.expiresInSeconds(),
+                access.issuedAt(),
+                rotated.issued().rawToken(),
+                rotated.issued().expiresInSeconds(),
+                userMapper.toDto(rotated.user())
+        );
+    }
+
+    public AuthTokenResponse issueTokens(User user, String userAgent, String ip) {
+        JwtTokenProvider.IssuedToken access = tokenProvider.issue(user);
+        RefreshTokenService.Issued refresh = refreshTokenService.issueNewFamily(user, userAgent, ip);
+
+        log.info("Issued JWT + refresh for userId={} accessTtl={}s refreshTtl={}s",
+                user.getId(), access.expiresInSeconds(), refresh.expiresInSeconds());
 
         return new AuthTokenResponse(
-                issued.token(),
+                access.token(),
                 "Bearer",
-                issued.expiresInSeconds(),
-                issued.issuedAt(),
+                access.expiresInSeconds(),
+                access.issuedAt(),
+                refresh.rawToken(),
+                refresh.expiresInSeconds(),
                 userMapper.toDto(user)
         );
     }

@@ -58,7 +58,8 @@ public class SecurityConfig {
         return new TokenBucketRateLimitFilter(10, 60, request ->
                 "POST".equals(request.getMethod())
                         && ("/api/auth/login".equals(request.getRequestURI())
-                                || "/api/auth/register".equals(request.getRequestURI())));
+                                || "/api/auth/register".equals(request.getRequestURI())
+                                || "/api/auth/refresh".equals(request.getRequestURI())));
     }
 
     @Bean
@@ -71,7 +72,11 @@ public class SecurityConfig {
                 .httpBasic(b -> b.disable())
                 .sessionManagement(s -> s.sessionCreationPolicy(SessionCreationPolicy.STATELESS))
                 .authorizeHttpRequests(auth -> auth
-                        .requestMatchers(HttpMethod.POST, "/api/auth/register", "/api/auth/login").permitAll()
+                        .requestMatchers(HttpMethod.POST,
+                                "/api/auth/register",
+                                "/api/auth/login",
+                                "/api/auth/refresh",
+                                "/api/auth/logout").permitAll()
                         .requestMatchers("/api/auth/oauth2/**").permitAll()
                         .requestMatchers("/actuator/**", "/v3/api-docs/**", "/swagger-ui/**", "/swagger-ui.html").permitAll()
                         .anyRequest().authenticated()
