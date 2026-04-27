@@ -1,0 +1,102 @@
+server:
+  port: ${SERVER_PORT:8080}
+
+spring:
+  application:
+    name: api-gateway
+  cloud:
+    gateway:
+      default-filters:
+        - DedupeResponseHeader=Access-Control-Allow-Origin Access-Control-Allow-Credentials, RETAIN_UNIQUE
+      globalcors:
+        cors-configurations:
+          '[/**]':
+            allowedOriginPatterns: "*"
+            allowedMethods: "*"
+            allowedHeaders: "*"
+            allowCredentials: true
+      routes:
+        - id: auth
+          uri: ${AUTH_SERVICE_URL:http://localhost:8081}
+          predicates:
+            - Path=/api/auth/**,/api/users/**
+
+        - id: products
+          uri: ${PRODUCT_SERVICE_URL:http://localhost:8082}
+          predicates:
+            - Path=/api/products/**,/api/categories/**
+
+        - id: cart
+          uri: ${CART_SERVICE_URL:http://localhost:8083}
+          predicates:
+            - Path=/api/cart/**
+
+        - id: orders
+          uri: ${ORDER_SERVICE_URL:http://localhost:8084}
+          predicates:
+            - Path=/api/orders/**
+
+        - id: payments
+          uri: ${PAYMENT_SERVICE_URL:http://localhost:8085}
+          predicates:
+            - Path=/api/payments/**
+
+        - id: auth-docs
+          uri: ${AUTH_SERVICE_URL:http://localhost:8081}
+          predicates:
+            - Path=/aggregated-docs/auth
+          filters:
+            - SetPath=/v3/api-docs
+
+        - id: product-docs
+          uri: ${PRODUCT_SERVICE_URL:http://localhost:8082}
+          predicates:
+            - Path=/aggregated-docs/products
+          filters:
+            - SetPath=/v3/api-docs
+
+        - id: cart-docs
+          uri: ${CART_SERVICE_URL:http://localhost:8083}
+          predicates:
+            - Path=/aggregated-docs/cart
+          filters:
+            - SetPath=/v3/api-docs
+
+        - id: order-docs
+          uri: ${ORDER_SERVICE_URL:http://localhost:8084}
+          predicates:
+            - Path=/aggregated-docs/orders
+          filters:
+            - SetPath=/v3/api-docs
+
+        - id: payment-docs
+          uri: ${PAYMENT_SERVICE_URL:http://localhost:8085}
+          predicates:
+            - Path=/aggregated-docs/payments
+          filters:
+            - SetPath=/v3/api-docs
+
+springdoc:
+  swagger-ui:
+    path: /swagger-ui.html
+    urls:
+      - name: auth
+        url: /aggregated-docs/auth
+      - name: products
+        url: /aggregated-docs/products
+      - name: cart
+        url: /aggregated-docs/cart
+      - name: orders
+        url: /aggregated-docs/orders
+      - name: payments
+        url: /aggregated-docs/payments
+
+management:
+  endpoints:
+    web:
+      exposure:
+        include: health,info,metrics,gateway
+
+logging:
+  pattern:
+    level: "%5p [%X{correlationId:-}]"
