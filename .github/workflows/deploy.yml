@@ -51,6 +51,10 @@ jobs:
           username: ${{ github.actor }}
           password: ${{ secrets.GITHUB_TOKEN }}
 
+      - name: Install all modules to local repo
+        working-directory: backend
+        run: mvn -B -DskipTests install
+
       - name: Build & push backend services via Jib
         working-directory: backend
         env:
@@ -59,11 +63,12 @@ jobs:
         run: |
           OWNER_LC=$(echo "$OWNER_LC" | tr '[:upper:]' '[:lower:]')
           for svc in api-gateway auth-service product-service cart-service order-service payment-service notification-service chatbot-service; do
-            mvn -B -DskipTests -pl "$svc" -am package
+            echo "::group::Jib build $svc"
             mvn -B -DskipTests -pl "$svc" \
               -Djib.to.image=ghcr.io/${OWNER_LC}/${svc}:${IMAGE_TAG} \
               -Djib.to.tags=latest \
               jib:build
+            echo "::endgroup::"
           done
 
       - name: Build & push frontend image
