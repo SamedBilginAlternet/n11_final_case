@@ -3,7 +3,7 @@ package com.n11.auth.api;
 import com.n11.auth.api.dto.UserDto;
 import com.n11.auth.api.mapper.UserMapper;
 import com.n11.auth.repository.UserRepository;
-import com.n11.auth.security.AuthenticatedUser;
+import com.n11.common.security.AuthenticatedUser;
 import io.swagger.v3.oas.annotations.Operation;
 import io.swagger.v3.oas.annotations.security.SecurityRequirement;
 import io.swagger.v3.oas.annotations.tags.Tag;
