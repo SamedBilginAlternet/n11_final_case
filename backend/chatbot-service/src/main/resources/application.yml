@@ -25,6 +25,13 @@ n11:
       model: ${ANTHROPIC_MODEL:claude-sonnet-4-6}
       max-tokens: ${ANTHROPIC_MAX_TOKENS:512}
       timeout-seconds: 20
+    groq:
+      api-key: ${GROQ_API_KEY:}
+      base-url: ${GROQ_BASE_URL:https://api.groq.com}
+      model: ${GROQ_MODEL:llama-3.3-70b-versatile}
+      max-tokens: ${GROQ_MAX_TOKENS:512}
+      temperature: ${GROQ_TEMPERATURE:0.7}
+      timeout-seconds: 20
     catalog:
       product-base-url: ${PRODUCT_SERVICE_URL:http://localhost:8082}
 
