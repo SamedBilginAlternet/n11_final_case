@@ -31,6 +31,9 @@ public class AuthenticationService {
         if (!user.isEnabled()) {
             throw new BadCredentialsException("User disabled");
         }
+        if (user.getPasswordHash() == null) {
+            throw new BadCredentialsException("Use social login for this account");
+        }
         if (!passwordEncoder.matches(request.password(), user.getPasswordHash())) {
             throw new BadCredentialsException("Invalid credentials");
         }

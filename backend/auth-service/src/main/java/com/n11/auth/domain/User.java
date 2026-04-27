@@ -21,11 +21,17 @@ public class User {
     @Column(nullable = false, length = 160)
     private String email;
 
-    @Column(name = "password_hash", nullable = false, length = 200)
+    @Column(name = "password_hash", length = 200)
     private String passwordHash;
 
     @Column(name = "full_name", nullable = false, length = 160)
     private String fullName;
+
+    @Column(name = "oauth_provider", length = 20)
+    private String oauthProvider;
+
+    @Column(name = "oauth_subject", length = 160)
+    private String oauthSubject;
 
     @Enumerated(EnumType.STRING)
     @Column(nullable = false, length = 20)
