@@ -7,6 +7,7 @@ import com.n11.product.api.mapper.ProductMapper;
 import com.n11.product.repository.CategoryRepository;
 import com.n11.product.repository.ProductRepository;
 import lombok.RequiredArgsConstructor;
+import org.springframework.cache.annotation.Cacheable;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.PageRequest;
 import org.springframework.data.domain.Pageable;
@@ -38,18 +39,22 @@ public class ProductQueryService {
         return productRepository.search(resolvedCategoryId, query, pageable).map(mapper::toSummary);
     }
 
+    @Cacheable(cacheNames = "products:byId", key = "#id")
     public ProductDetailDto findById(Long id) {
         return productRepository.findById(id)
                 .map(mapper::toDetail)
                 .orElseThrow(() -> new ResponseStatusException(NOT_FOUND, "Product not found: " + id));
     }
 
+    @Cacheable(cacheNames = "products:bySlug", key = "#slug")
     public ProductDetailDto findBySlug(String slug) {
         return productRepository.findBySlug(slug)
                 .map(mapper::toDetail)
                 .orElseThrow(() -> new ResponseStatusException(NOT_FOUND, "Product not found: " + slug));
     }
 
+    @Cacheable(cacheNames = "products:autocomplete",
+               key = "#q.trim().toLowerCase() + ':' + T(java.lang.Math).min(T(java.lang.Math).max(#limit, 1), 20)")
     public List<AutocompleteSuggestion> autocomplete(String q, int limit) {
         if (q == null || q.isBlank()) return List.of();
         int capped = Math.min(Math.max(limit, 1), 20);
