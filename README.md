@@ -145,6 +145,38 @@ done
 
 `docker compose down -v` Redis volume'unu da siler — yeni `up` cold cache ile başlar.
 
+**Cache metrics (Micrometer + Actuator)**:
+
+`spring.cache.redis.enable-statistics: true` her cache name için hit/miss/put
+sayaçlarını Micrometer registry'ye basar. Aktif servislere doğrudan vurarak gör:
+
+```bash
+# Önce trafik üret
+for i in 1 2 3; do curl -s http://localhost:8082/api/categories > /dev/null; done
+
+# Hit/miss breakdown'u oku
+curl -s http://localhost:8082/actuator/metrics/cache.gets | jq
+# {
+#   "name": "cache.gets",
+#   "measurements": [{ "statistic": "COUNT", "value": 3 }],
+#   "availableTags": [
+#     { "tag": "result", "values": ["hit", "miss"] },
+#     { "tag": "name",   "values": ["categories", "products:byId", ...] }
+#   ]
+# }
+
+# Sadece kategori cache hit sayısı
+curl -s "http://localhost:8082/actuator/metrics/cache.gets?tag=name:categories&tag=result:hit"
+```
+
+Production'da bu metrikler Prometheus scrape edilir → Grafana panelinde
+canlı hit-ratio izlenir. Demo'da `jq` yeterli.
+
+**Test ortamı**: integration test'lerde Redis container'a ihtiyaç olmaması için
+`spring.cache.type=none` profile (test/resources/`application-test.yml`) +
+`@ActiveProfiles("test")` `CacheConfig`'i devre dışı bırakır, `@Cacheable`
+no-op olur.
+
 ### Iyzico
 
 Varsayılan olarak `IYZICO_ENABLED=false` ile **MockPaymentGateway** çalışır — hiçbir dış
