@@ -52,10 +52,10 @@ class AddressServiceTest {
 
     @Test
     void promotingNewDefaultClearsOldOne() {
+        // Existing default present → service short-circuits the second
+        // findBy* check; only stub the first one.
         when(repository.findFirstByUserIdAndDefaultAddressTrue(7L))
                 .thenReturn(Optional.of(Address.builder().id(99L).userId(7L).defaultAddress(true).build()));
-        when(repository.findByUserIdOrderByDefaultAddressDescIdAsc(7L))
-                .thenReturn(List.of(Address.builder().id(99L).build()));
         when(repository.save(any(Address.class))).thenAnswer(inv -> {
             Address a = inv.getArgument(0);
             a.setId(2L);
@@ -75,8 +75,6 @@ class AddressServiceTest {
     void nonDefaultRequestStaysNonDefaultWhenOthersExist() {
         when(repository.findFirstByUserIdAndDefaultAddressTrue(7L))
                 .thenReturn(Optional.of(Address.builder().id(99L).userId(7L).defaultAddress(true).build()));
-        when(repository.findByUserIdOrderByDefaultAddressDescIdAsc(7L))
-                .thenReturn(List.of(Address.builder().id(99L).build()));
         when(repository.save(any(Address.class))).thenAnswer(inv -> {
             Address a = inv.getArgument(0);
             a.setId(3L);
