@@ -24,16 +24,16 @@ export default function LoginPage() {
     <div className="mx-auto mt-12 max-w-md p-6">
       <div className="card p-6">
         <h1 className="text-xl font-semibold">Giriş Yap</h1>
-        <p className="mt-1 text-sm text-slate-500">Hesabına giriş yaparak alışverişe devam et.</p>
+        <p className="mt-1 text-sm text-gray-500">Hesabına giriş yaparak alışverişe devam et.</p>
         <form onSubmit={onSubmit} className="mt-6 space-y-4">
           <div>
-            <label htmlFor="email" className="block text-sm font-medium text-slate-700">
+            <label htmlFor="email" className="block text-sm font-medium text-gray-700">
               E-posta
             </label>
             <input id="email" type="email" required className="input mt-1" value={email} onChange={(e) => setEmail(e.target.value)} />
           </div>
           <div>
-            <label htmlFor="password" className="block text-sm font-medium text-slate-700">
+            <label htmlFor="password" className="block text-sm font-medium text-gray-700">
               Şifre
             </label>
             <input id="password" type="password" required className="input mt-1" value={password} onChange={(e) => setPassword(e.target.value)} />
@@ -41,9 +41,9 @@ export default function LoginPage() {
           <button type="submit" disabled={loading} className="btn-primary w-full">
             {loading ? 'Giriş yapılıyor…' : 'Giriş Yap'}
           </button>
-          <p className="text-center text-sm text-slate-500">
+          <p className="text-center text-sm text-gray-500">
             Hesabın yok mu?{' '}
-            <Link className="text-n11-orange" to="/register">
+            <Link className="font-medium text-n11-pink hover:text-n11-pinkDark" to="/register">
               Kayıt ol
             </Link>
           </p>
