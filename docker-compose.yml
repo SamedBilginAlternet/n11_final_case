@@ -98,6 +98,7 @@ services:
       <<: [*postgres-env, *redis-env, *jvm-defaults]
       SERVER_PORT: 8082
       POSTGRES_DB: productdb
+      JWT_SECRET: ${JWT_SECRET:-changeme-32-byte-min-secret-changeme-please-rotate}
     ports: ["8082:8082"]
 
   cart-service:
