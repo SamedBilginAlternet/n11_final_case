@@ -7,7 +7,7 @@ html, body, #root {
 }
 
 body {
-  @apply font-sans text-n11-dark antialiased;
+  @apply font-sans text-n11-black antialiased bg-gray-50;
 }
 
 @layer components {
@@ -16,16 +16,28 @@ body {
            transition-colors disabled:opacity-50 disabled:cursor-not-allowed;
   }
   .btn-primary {
-    @apply btn bg-n11-orange text-white hover:bg-orange-600;
+    @apply btn bg-n11-pink text-white hover:bg-n11-pinkDark;
   }
   .btn-outline {
-    @apply btn border border-slate-300 bg-white text-slate-700 hover:bg-slate-50;
+    @apply btn border border-gray-300 bg-white text-gray-700 hover:bg-gray-50;
+  }
+  .btn-dark {
+    @apply btn bg-n11-black text-white hover:bg-gray-800;
   }
   .input {
-    @apply w-full rounded-md border border-slate-300 px-3 py-2 text-sm shadow-sm
-           focus:border-n11-orange focus:outline-none focus:ring-1 focus:ring-n11-orange;
+    @apply w-full rounded-md border border-gray-300 px-3 py-2 text-sm shadow-sm
+           focus:border-n11-pink focus:outline-none focus:ring-1 focus:ring-n11-pink;
   }
   .card {
-    @apply rounded-lg border border-slate-200 bg-white shadow-sm;
+    @apply rounded-lg border border-gray-200 bg-white shadow-soft;
+  }
+  .badge-black {
+    @apply inline-flex items-center rounded-full bg-n11-black px-2 py-0.5 text-[10px] font-bold uppercase tracking-wide text-white;
+  }
+  .badge-pink {
+    @apply inline-flex items-center rounded-md bg-n11-pinkSoft px-2 py-0.5 text-[11px] font-semibold text-n11-pinkDark;
+  }
+  .pill-link {
+    @apply text-sm text-gray-700 hover:text-n11-pink transition-colors;
   }
 }
