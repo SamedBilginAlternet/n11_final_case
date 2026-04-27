@@ -30,6 +30,34 @@ public class RabbitConfig {
                 .with(SagaTopology.RoutingKey.ORDER_CONFIRMED);
     }
 
+    // Coupon reservation saga: separate queue from CART_ORDER_CONFIRMED so the
+    // 'clear cart' and 'reserve coupon' consumers can fail / retry independently.
+    @Bean
+    public Queue cartOrderCreatedCouponQueue() {
+        return QueueBuilder.durable(SagaTopology.Queue.CART_ORDER_CREATED_COUPON)
+                .withArgument("x-dead-letter-exchange", SagaTopology.EXCHANGE + ".dlx")
+                .build();
+    }
+
+    @Bean
+    public Binding bindCartOrderCreatedCoupon(Queue cartOrderCreatedCouponQueue, TopicExchange sagaExchange) {
+        return BindingBuilder.bind(cartOrderCreatedCouponQueue).to(sagaExchange)
+                .with(SagaTopology.RoutingKey.ORDER_CREATED);
+    }
+
+    @Bean
+    public Queue cartOrderCancelledCouponQueue() {
+        return QueueBuilder.durable(SagaTopology.Queue.CART_ORDER_CANCELLED_COUPON)
+                .withArgument("x-dead-letter-exchange", SagaTopology.EXCHANGE + ".dlx")
+                .build();
+    }
+
+    @Bean
+    public Binding bindCartOrderCancelledCoupon(Queue cartOrderCancelledCouponQueue, TopicExchange sagaExchange) {
+        return BindingBuilder.bind(cartOrderCancelledCouponQueue).to(sagaExchange)
+                .with(SagaTopology.RoutingKey.ORDER_CANCELLED);
+    }
+
     @Bean
     public MessageConverter jsonMessageConverter() {
         return new Jackson2JsonMessageConverter();
