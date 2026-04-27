@@ -1,18 +1,23 @@
 import { useState } from 'react';
-import { Link, useNavigate } from 'react-router-dom';
+import { Link, useLocation, useNavigate } from 'react-router-dom';
 import toast from 'react-hot-toast';
 import { api } from '../api/client.js';
 import { useCart } from '../state/CartContext.jsx';
 import { formatCurrency } from '../utils/format.js';
 
 export default function CartPage() {
-  const { cart, refresh, updateQuantity, removeItem, applyCoupon, clearCoupon } = useCart();
+  const { cart, refresh, updateQuantity, removeItem, applyCoupon, clearCoupon, isGuest } = useCart();
   const [checkoutLoading, setCheckoutLoading] = useState(false);
   const [couponInput, setCouponInput] = useState('');
   const [couponLoading, setCouponLoading] = useState(false);
   const navigate = useNavigate();
+  const location = useLocation();
 
   async function onCheckout() {
+    if (isGuest) {
+      navigate('/login', { state: { from: location } });
+      return;
+    }
     setCheckoutLoading(true);
     try {
       const { data } = await api.post('/api/orders/checkout');
@@ -54,6 +59,7 @@ export default function CartPage() {
   return (
     <div className="grid gap-6 lg:grid-cols-3">
       <div className="space-y-3 lg:col-span-2">
+        {isGuest && <GuestBanner />}
         {cart.items.map((item) => (
           <article key={item.id} className="card flex gap-4 p-3">
             <div className="h-24 w-24 overflow-hidden rounded bg-gray-100">
@@ -92,14 +98,18 @@ export default function CartPage() {
       <aside className="card sticky top-4 h-fit space-y-4 p-4">
         <h2 className="text-lg font-semibold">Sipariş Özeti</h2>
 
-        <CouponBlock
-          cart={cart}
-          couponInput={couponInput}
-          setCouponInput={setCouponInput}
-          couponLoading={couponLoading}
-          onApply={onApplyCoupon}
-          onClear={clearCoupon}
-        />
+        {isGuest ? (
+          <CouponLoginLock />
+        ) : (
+          <CouponBlock
+            cart={cart}
+            couponInput={couponInput}
+            setCouponInput={setCouponInput}
+            couponLoading={couponLoading}
+            onApply={onApplyCoupon}
+            onClear={clearCoupon}
+          />
+        )}
 
         <dl className="space-y-2 text-sm text-gray-600">
           <div className="flex justify-between">
@@ -131,9 +141,41 @@ export default function CartPage() {
           </div>
         </dl>
         <button onClick={onCheckout} disabled={checkoutLoading} className="btn-primary w-full">
-          {checkoutLoading ? 'Sipariş oluşturuluyor…' : 'Siparişi Tamamla'}
+          {checkoutLoading
+            ? 'Sipariş oluşturuluyor…'
+            : isGuest
+            ? 'Devam etmek için giriş yap'
+            : 'Siparişi Tamamla'}
         </button>
       </aside>
+    </div>
+  );
+}
+
+function GuestBanner() {
+  return (
+    <div className="rounded-md border border-n11-pink/30 bg-n11-pinkBg/40 p-3 text-sm">
+      <p className="font-medium text-n11-pinkDark">Misafir olarak alışveriş yapıyorsun</p>
+      <p className="mt-0.5 text-xs text-gray-600">
+        Sepetin tarayıcında saklanıyor.{' '}
+        <Link to="/login" className="font-medium text-n11-pink hover:underline">
+          Giriş yap
+        </Link>{' '}
+        ya da{' '}
+        <Link to="/register" className="font-medium text-n11-pink hover:underline">
+          üye ol
+        </Link>{' '}
+        — sepetin otomatik aktarılır, kupon ve kampanyalar uygulanır.
+      </p>
+    </div>
+  );
+}
+
+function CouponLoginLock() {
+  return (
+    <div className="rounded-md border border-gray-200 bg-gray-50 p-3 text-xs text-gray-500">
+      <p className="font-medium text-gray-700">Kupon kodu için giriş yap</p>
+      <p className="mt-0.5">Kuponlar ve kampanya indirimleri sipariş özetine giriş sonrası eklenir.</p>
     </div>
   );
 }
