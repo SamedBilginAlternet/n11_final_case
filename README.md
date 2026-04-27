@@ -145,6 +145,107 @@ docker compose up --build
 
 GitHub'ın `email` alanı public değilse `user:email` scope'u ile `/user/emails`'tan birincil verified e-posta otomatik çekilir (`GitHubEmailAwareUserService`).
 
+### Kampanya & Kupon Motoru
+
+`cart-service` içinde **Strategy + Chain** desenleri ile kurulu, sepete eklenen
+her ürün veya kupon değişikliğinde sepet özetini yeniden hesaplayan bir
+indirim motoru var. Kalıp net şu şekilde çalışır:
+
+```
+Cart  →  DiscountEngine  →  Quote
+                  │
+                  ├─ subtotal = Σ unitPrice × qty
+                  ├─ Coupon (cart.coupon_code → DB lookup)
+                  ├─ Active Campaigns (DB, validFrom/Until içinde)
+                  │
+                  └─ for each DiscountStrategy in priority order:
+                        strategy.evaluate(QuoteContext) → AppliedDiscount?
+
+  totalDiscount = Σ AppliedDiscount.amount
+  total         = max(subtotal − totalDiscount, 0)
+```
+
+Her strateji `@Component` — Spring otomatik toplar, `priority()` küçüğe göre
+sıralar, sırayla çağırır. Yeni bir kampanya tipi eklemek tek dosyalık bir
+değişiklik (yeni `DiscountStrategy` impl'i + DB tarafında yeni
+`CampaignType`).
+
+**Mevcut 3 strateji**
+
+| Priority | Strategy | Açıklama |
+|---|---|---|
+| 20 | `BuyXPayYStrategy` | "X al Y öde" — kart-bazlı; sepetteki birimler ucuza göre sıralanır, her tam X grubunda en ucuz (X−Y) birim hediye olur. 8 ürün varsa iki tam grup → en ucuz 2 birim hediye. |
+| 30 | `PercentOffCartStrategy` | "Sepette %X indirim" — `min_cart_total` eşiğini geçen en yüksek priority kampanya seçilir; iki yüzde kampanyası üst üste binmez. |
+| 50 | `CouponCodeStrategy` | Kullanıcının `KUPON100` gibi girdiği kod. `FIXED` (mutlak TL) veya `PERCENT`. FIXED tutar subtotal'i geçerse subtotal'e clamp olur (negatif total yok). |
+
+**Discount stacking**: stratejiler ek (additive) — her biri *orijinal*
+subtotal'e karşı hesaplanır, sonuçlar toplanır. Sıra final'i etkilemez.
+Bu özellikle compounding bug'ları engeller (5% + 10% = 15%, 14.5% değil).
+
+**Coupon kalıcı state'i + saga rezervasyonu**
+
+Kupon kullanım sayacı `coupons.redemptions` ile tutuluyor; cap'e ulaşınca
+strateji sessizce drop ediyor. Race-safe rezervasyon iki aşamada:
+
+1. Kullanıcı `/api/cart/coupon { code }` çağırır → `cart.coupon_code` set
+   olur. **DB sayacı henüz değişmez** — terk edilen sepetler kuponu yakmaz.
+2. `/api/orders/checkout` saga'sını başlatır:
+   - order-service `OrderCreated` event'ine `couponCode`'u koyar
+   - cart-service `CART_ORDER_CREATED_COUPON` queue'sünden tüketir
+   - **Atomik UPDATE**: `redemptions = redemptions + 1 WHERE redemptions < max_redemptions`
+   - `coupon_redemptions` tablosuna `(coupon_id, order_id)` UNIQUE constraint'li satır insert edilir
+3. Ödeme reddedilirse:
+   - order-service `OrderCancelled` event'ine `couponCode`'u koyar (compensation key olarak)
+   - cart-service `CART_ORDER_CANCELLED_COUPON` queue'sünden tüketir
+   - Redemption row silinir, `redemptions` decrement (zerolanır, negatif gitmez)
+
+Bu tasarım iki yarış senaryosunu kapatır:
+- **At-least-once duplicate delivery**: aynı `OrderCreated` iki kez gelse, ikincisi `(coupon_id, order_id)` UNIQUE'a takılır, sayaç değiştirmez.
+- **Concurrent checkout for the last slot**: iki paralel UPDATE → biri 1 row affected, diğeri 0 row affected; 0 alan log'lar ve siparişi tam fiyatla devam ettirir.
+
+**Compensation idempotent**: aynı `OrderCancelled` iki kez gelse, ikinci pass `findByOrderId` dönmez ve no-op olur.
+
+**Demo data** — `V4__seed_pricing.sql` 3 kampanya + 3 kupon insert eder:
+
+| Code | Tip | Detay |
+|---|---|---|
+| `PCT5_OVER_500` | %5 | Sepette 500 TL ve üzeri |
+| `PCT10_OVER_2K` | %10 | Sepette 2.000 TL ve üzeri (priority 31, PCT5 ile birlikte değil) |
+| `BUY4_PAY3` | 4 al 3 öde | Sepet geneli, kategori filtresiz |
+| `KUPON100` | FIXED 100 TL | Min sepet 300 TL, 1.000 kullanım |
+| `KUPON10` | %10 | Cap-free |
+| `YENI50` | FIXED 50 TL | **1 kullanım** — race senaryosu için |
+
+**Hızlı doğrulama**:
+
+```bash
+# JWT al
+TOKEN=$(curl -s -X POST localhost:8080/api/auth/login \
+  -H 'Content-Type: application/json' \
+  -d '{"email":"alice@n11.local","password":"alice123"}' | jq -r .accessToken)
+
+# 4 ürün ekle, BUY4_PAY3 + PCT5 trigger olmalı
+for pid in 1 2 3 4; do
+  curl -s -X POST localhost:8080/api/cart/items \
+    -H "Authorization: Bearer $TOKEN" \
+    -H 'Content-Type: application/json' \
+    -d "{\"productId\":$pid,\"quantity\":1}"
+done
+
+# Kupon ekle
+curl -s -X POST localhost:8080/api/cart/coupon \
+  -H "Authorization: Bearer $TOKEN" \
+  -H 'Content-Type: application/json' \
+  -d '{"code":"KUPON100"}' | jq '.discounts, .totalDiscount, .totalAmount'
+```
+
+Kod tabanı pointers:
+- Strategy SPI: `backend/cart-service/src/main/java/com/n11/cart/pricing/DiscountStrategy.java`
+- Engine: `…/pricing/DiscountEngine.java`
+- 3 implementasyon: `…/pricing/strategy/`
+- Saga listener: `…/messaging/CouponSagaListener.java`
+- Şema: `…/db/migration/V3__pricing_engine.sql`, `V4__seed_pricing.sql`, `V5__coupon_redemptions.sql`
+
 ### Chatbot AI provider
 
 Varsayılan `CHATBOT_PROVIDER=MOCK` (anahtarsız çalışır). Üç seçenek:
