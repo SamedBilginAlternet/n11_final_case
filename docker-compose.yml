@@ -12,6 +12,10 @@ x-rabbitmq-env: &rabbitmq-env
   RABBITMQ_USER: ${RABBITMQ_USER:-guest}
   RABBITMQ_PASSWORD: ${RABBITMQ_PASSWORD:-guest}
 
+x-redis-env: &redis-env
+  REDIS_HOST: redis
+  REDIS_PORT: 6379
+
 x-jvm-defaults: &jvm-defaults
   JAVA_TOOL_OPTIONS: "-XX:+UseG1GC -XX:MaxRAMPercentage=75"
 
@@ -46,6 +50,20 @@ services:
       timeout: 5s
       retries: 6
 
+  redis:
+    image: redis:7-alpine
+    # AOF every-second so a crash within 1 sec of a write loses at most a
+    # few seconds of cache state — fine for cache use; not used as primary store.
+    command: ["redis-server", "--appendonly", "yes", "--save", ""]
+    ports: ["6379:6379"]
+    volumes:
+      - n11_redis_data:/data
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 5s
+      timeout: 3s
+      retries: 6
+
   auth-service:
     build:
       context: ./backend
@@ -75,8 +93,9 @@ services:
     image: n11/product-service:1.0.0
     depends_on:
       postgres: { condition: service_healthy }
+      redis:    { condition: service_healthy }
     environment:
-      <<: [*postgres-env, *jvm-defaults]
+      <<: [*postgres-env, *redis-env, *jvm-defaults]
       SERVER_PORT: 8082
       POSTGRES_DB: productdb
     ports: ["8082:8082"]
@@ -90,9 +109,10 @@ services:
     depends_on:
       postgres: { condition: service_healthy }
       rabbitmq: { condition: service_healthy }
+      redis:    { condition: service_healthy }
       product-service: { condition: service_started }
     environment:
-      <<: [*postgres-env, *rabbitmq-env, *jvm-defaults]
+      <<: [*postgres-env, *rabbitmq-env, *redis-env, *jvm-defaults]
       SERVER_PORT: 8083
       POSTGRES_DB: cartdb
       JWT_SECRET: ${JWT_SECRET:-changeme-32-byte-min-secret-changeme-please-rotate}
@@ -193,3 +213,4 @@ services:
 
 volumes:
   n11_pgdata:
+  n11_redis_data:
