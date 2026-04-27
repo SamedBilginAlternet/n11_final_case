@@ -27,6 +27,16 @@
             <artifactId>spring-boot-starter-web</artifactId>
             <optional>true</optional>
         </dependency>
+        <!-- Provides Spring Security types used by JwtAuthenticationFilter (OncePerRequestFilter
+             auth wiring, SecurityContextHolder, WebAuthenticationDetailsSource).
+             optional=true: only services that actually wire the filter pull the runtime
+             starter themselves. Common stays a "shared types" library, not a hidden
+             security dependency. -->
+        <dependency>
+            <groupId>org.springframework.boot</groupId>
+            <artifactId>spring-boot-starter-security</artifactId>
+            <optional>true</optional>
+        </dependency>
         <dependency>
             <groupId>io.jsonwebtoken</groupId>
             <artifactId>jjwt-api</artifactId>
