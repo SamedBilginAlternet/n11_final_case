@@ -125,6 +125,12 @@ management:
         # Override via MANAGEMENT_ENDPOINTS_WEB_EXPOSURE_INCLUDE on the
         # ops box if you need them temporarily.
         include: ${MANAGEMENT_ENDPOINTS_WEB_EXPOSURE_INCLUDE:health,info}
+  tracing:
+    sampling:
+      probability: ${TRACE_SAMPLING:1.0}
+  otlp:
+    tracing:
+      endpoint: ${OTEL_EXPORTER_OTLP_ENDPOINT:http://localhost:4318}/v1/traces
 
 logging:
   pattern:
