@@ -21,6 +21,9 @@ public class Cart {
     @Column(name = "user_id", nullable = false)
     private Long userId;
 
+    @Column(name = "coupon_code", length = 40)
+    private String couponCode;
+
     @Column(name = "created_at", nullable = false, updatable = false)
     private Instant createdAt;
 
