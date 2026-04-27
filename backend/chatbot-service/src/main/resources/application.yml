@@ -1,0 +1,43 @@
+server:
+  port: ${SERVER_PORT:8087}
+
+spring:
+  application:
+    name: chatbot-service
+  datasource:
+    url: jdbc:postgresql://${POSTGRES_HOST:localhost}:${POSTGRES_PORT:5432}/${POSTGRES_DB:chatbotdb}
+    username: ${POSTGRES_USER:n11}
+    password: ${POSTGRES_PASSWORD:n11pw}
+  jpa:
+    hibernate:
+      ddl-auto: validate
+    open-in-view: false
+  flyway:
+    enabled: true
+    baseline-on-migrate: true
+
+n11:
+  chatbot:
+    provider: ${CHATBOT_PROVIDER:MOCK}
+    anthropic:
+      api-key: ${ANTHROPIC_API_KEY:}
+      base-url: ${ANTHROPIC_BASE_URL:https://api.anthropic.com}
+      model: ${ANTHROPIC_MODEL:claude-sonnet-4-6}
+      max-tokens: ${ANTHROPIC_MAX_TOKENS:512}
+      timeout-seconds: 20
+    catalog:
+      product-base-url: ${PRODUCT_SERVICE_URL:http://localhost:8082}
+
+management:
+  endpoints:
+    web:
+      exposure:
+        include: health,info,metrics
+
+springdoc:
+  swagger-ui:
+    path: /swagger-ui.html
+
+logging:
+  pattern:
+    level: "%5p [%X{correlationId:-}]"
