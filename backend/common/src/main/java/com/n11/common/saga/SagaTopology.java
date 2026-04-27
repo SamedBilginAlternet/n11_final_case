@@ -10,7 +10,6 @@ public final class SagaTopology {
         public static final String PAYMENT_FAILED = "payment.failed";
         public static final String ORDER_CONFIRMED = "order.confirmed";
         public static final String ORDER_CANCELLED = "order.cancelled";
-        public static final String USER_REGISTERED = "user.registered";
 
         private RoutingKey() {}
     }
