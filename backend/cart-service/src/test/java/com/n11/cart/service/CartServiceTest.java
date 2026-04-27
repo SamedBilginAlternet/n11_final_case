@@ -59,7 +59,7 @@ class CartServiceTest {
         when(repository.findByUserId(1L)).thenReturn(Optional.empty());
         when(repository.save(any(Cart.class))).thenAnswer(inv -> inv.getArgument(0));
         when(productClient.fetch(99L)).thenReturn(new ProductSnapshot(
-                99L, "iPhone", "img.png", new BigDecimal("64999.00"), "TRY", 5));
+                99L, "iphone", "iPhone", "img.png", new BigDecimal("64999.00"), "TRY", 5));
 
         CartDto cart = service.addItem(1L, new AddItemRequest(99L, 2));
 
@@ -75,7 +75,7 @@ class CartServiceTest {
         when(repository.findByUserId(1L)).thenReturn(Optional.empty());
         when(repository.save(any(Cart.class))).thenAnswer(inv -> inv.getArgument(0));
         when(productClient.fetch(99L)).thenReturn(new ProductSnapshot(
-                99L, "Item", null, new BigDecimal("10.00"), "TRY", 1));
+                99L, "item", "Item", null, new BigDecimal("10.00"), "TRY", 1));
 
         assertThatThrownBy(() -> service.addItem(1L, new AddItemRequest(99L, 5)))
                 .isInstanceOf(InsufficientStockException.class);
