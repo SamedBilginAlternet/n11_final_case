@@ -1,0 +1,32 @@
+server:
+  port: ${SERVER_PORT:8086}
+
+spring:
+  application:
+    name: notification-service
+  rabbitmq:
+    host: ${RABBITMQ_HOST:localhost}
+    port: ${RABBITMQ_PORT:5672}
+    username: ${RABBITMQ_USER:guest}
+    password: ${RABBITMQ_PASSWORD:guest}
+
+n11:
+  slack:
+    enabled: ${SLACK_ENABLED:false}
+    webhook-url: ${SLACK_WEBHOOK_URL:}
+    channel: ${SLACK_CHANNEL:#deploys}
+    username: ${SLACK_USERNAME:n11-bot}
+
+management:
+  endpoints:
+    web:
+      exposure:
+        include: health,info,metrics
+
+springdoc:
+  swagger-ui:
+    path: /swagger-ui.html
+
+logging:
+  pattern:
+    level: "%5p [%X{correlationId:-}]"
