@@ -1,6 +1,5 @@
-package com.n11.chatbot.security;
+package com.n11.common.security;
 
-import com.n11.chatbot.config.RateLimitProperties;
 import jakarta.servlet.FilterChain;
 import jakarta.servlet.ServletException;
 import jakarta.servlet.http.HttpServletRequest;
@@ -11,50 +10,63 @@ import org.springframework.web.filter.OncePerRequestFilter;
 import java.io.IOException;
 import java.util.Map;
 import java.util.concurrent.ConcurrentHashMap;
+import java.util.function.Predicate;
 
 /**
- * In-memory token bucket per client identity for the {@code POST /api/chat}
- * endpoint. Stops anonymous abuse from burning Groq / Anthropic quota.
+ * Reusable per-identity token-bucket rate limiter shared across services.
+ *
+ * <p>Construction</p>
+ * <pre>
+ *   new TokenBucketRateLimitFilter(
+ *       capacity,          // max requests in any rolling window
+ *       windowSeconds,     // refill = capacity/windowSeconds tokens/sec
+ *       request -> isLogin // pure-function predicate; only requests that
+ *                          //   match it consume tokens, everything else
+ *                          //   passes through (Swagger, actuator, etc.)
+ *   )
+ * </pre>
  *
  * <p>Identity precedence — first non-empty wins:</p>
  * <ol>
  *   <li>{@code X-Guest-Token} header (set by frontend per browser session)</li>
- *   <li>{@code X-Forwarded-For} header (Caddy / nginx in front)</li>
+ *   <li>{@code X-Forwarded-For} first hop (proxy / Caddy in front)</li>
  *   <li>{@code request.getRemoteAddr()} (direct connection)</li>
  * </ol>
  *
- * <p>Bucket maths:</p>
+ * <p>Mechanics</p>
  * <ul>
- *   <li>Capacity = max requests in any rolling window.</li>
- *   <li>Refill = capacity / windowSeconds tokens per second, lazily applied
- *       on each access (no scheduled task).</li>
- *   <li>Empty bucket → HTTP 429 with {@code Retry-After} header in seconds
- *       until a single token is replenished.</li>
+ *   <li>Lazy refill on access — no scheduled task, no Redis dep.</li>
+ *   <li>{@code ConcurrentHashMap} backed; per-bucket {@code synchronized}
+ *       block so two concurrent requests for the same key serialize their
+ *       arithmetic without blocking unrelated keys.</li>
+ *   <li>Empty bucket → {@code 429 Too Many Requests} with
+ *       {@code Retry-After: <seconds>} header.</li>
  * </ul>
  *
- * <p>Only acts on {@code POST /api/chat} — the LLM-cost endpoint. History
- * reads, swagger, actuator pass straight through. Filter is registered before
- * Spring Security's chain (see SecurityConfig).</p>
+ * <p>Single-process only. For multi-node deployments swap the in-memory
+ * {@code Map} for a Redis-backed bucket store — public API stays the same.</p>
  */
 @Slf4j
-public class RateLimitFilter extends OncePerRequestFilter {
-
-    private static final String CHAT_ENDPOINT = "/api/chat";
+public class TokenBucketRateLimitFilter extends OncePerRequestFilter {
 
     private final int capacity;
-    private final int windowSeconds;
     private final double tokensPerSecond;
+    private final Predicate<HttpServletRequest> appliesTo;
     private final Map<String, Bucket> buckets = new ConcurrentHashMap<>();
 
-    public RateLimitFilter(RateLimitProperties props) {
-        this.capacity = props.capacity();
-        this.windowSeconds = props.windowSeconds();
+    public TokenBucketRateLimitFilter(int capacity, int windowSeconds,
+                                      Predicate<HttpServletRequest> appliesTo) {
+        if (capacity <= 0 || windowSeconds <= 0) {
+            throw new IllegalArgumentException("capacity and windowSeconds must be > 0");
+        }
+        this.capacity = capacity;
         this.tokensPerSecond = (double) capacity / windowSeconds;
+        this.appliesTo = appliesTo;
     }
 
     @Override
     protected boolean shouldNotFilter(HttpServletRequest request) {
-        return !(request.getMethod().equals("POST") && request.getRequestURI().equals(CHAT_ENDPOINT));
+        return !appliesTo.test(request);
     }
 
     @Override
@@ -75,7 +87,8 @@ public class RateLimitFilter extends OncePerRequestFilter {
             retryAfterSeconds = (long) Math.ceil((1 - bucket.tokens) / tokensPerSecond);
         }
 
-        log.warn("Rate-limit exceeded for chat key={} retryAfter={}s", key, retryAfterSeconds);
+        log.warn("Rate limit exceeded path={} key={} retryAfter={}s",
+                request.getRequestURI(), key, retryAfterSeconds);
         response.setStatus(HttpServletResponse.SC_TOO_MANY_REQUESTS);
         response.setHeader("Retry-After", String.valueOf(retryAfterSeconds));
         response.setContentType("application/json");
@@ -88,7 +101,6 @@ public class RateLimitFilter extends OncePerRequestFilter {
         if (guest != null && !guest.isBlank()) return "guest:" + guest;
         String forwarded = request.getHeader("X-Forwarded-For");
         if (forwarded != null && !forwarded.isBlank()) {
-            // first hop = original client
             int comma = forwarded.indexOf(',');
             return "ip:" + (comma > 0 ? forwarded.substring(0, comma).trim() : forwarded.trim());
         }

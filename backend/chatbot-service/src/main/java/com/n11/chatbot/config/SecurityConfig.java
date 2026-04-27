@@ -1,6 +1,6 @@
 package com.n11.chatbot.config;
 
-import com.n11.chatbot.security.RateLimitFilter;
+import com.n11.common.security.TokenBucketRateLimitFilter;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
 import org.springframework.security.config.annotation.web.builders.HttpSecurity;
@@ -13,8 +13,8 @@ import org.springframework.security.web.authentication.UsernamePasswordAuthentic
  * Chatbot is intentionally usable by anonymous shoppers — preserves the guest
  * flow seen across the rest of the site (see CartContext / guest cart). The
  * security chain therefore permitAll's every endpoint; abuse protection moves
- * to {@link RateLimitFilter} which sits in front of the security chain and
- * caps per-identity throughput on POST /api/chat (the LLM-cost endpoint).
+ * to a per-identity token-bucket filter (common's {@link TokenBucketRateLimitFilter})
+ * that caps throughput on POST /api/chat — the LLM-cost endpoint.
  *
  * Adding JWT auth here would break anonymous chat — the case study spec
  * explicitly wants guests to be able to talk to the assistant.
@@ -24,12 +24,16 @@ import org.springframework.security.web.authentication.UsernamePasswordAuthentic
 public class SecurityConfig {
 
     @Bean
-    public RateLimitFilter chatRateLimitFilter(RateLimitProperties props) {
-        return new RateLimitFilter(props);
+    public TokenBucketRateLimitFilter chatRateLimitFilter(RateLimitProperties props) {
+        return new TokenBucketRateLimitFilter(
+                props.capacity(),
+                props.windowSeconds(),
+                req -> "POST".equals(req.getMethod()) && "/api/chat".equals(req.getRequestURI()));
     }
 
     @Bean
-    public SecurityFilterChain filterChain(HttpSecurity http, RateLimitFilter rateLimitFilter) throws Exception {
+    public SecurityFilterChain filterChain(HttpSecurity http,
+                                           TokenBucketRateLimitFilter rateLimitFilter) throws Exception {
         http
                 .csrf(csrf -> csrf.disable())
                 .formLogin(f -> f.disable())
