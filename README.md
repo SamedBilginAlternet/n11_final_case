@@ -1,8 +1,10 @@
 # n11 Final Case — E-Ticaret
 
-Spring Boot 3.3 / Java 21 **7 mikroservis**, RabbitMQ üzerinde **choreography saga**, JWT
-auth, Iyzico ödeme entegrasyonu, React + Vite + Tailwind frontend ve **GitHub Actions →
-AWS Elastic Beanstalk + ECR + RDS** deploy boru hattı.
+Spring Boot 3.3 / Java 21 **8 mikroservis** (auth, product, cart, order, payment, notification,
+**chatbot (Anthropic Claude)** ve gateway), RabbitMQ üzerinde **choreography saga**, JWT
+auth, Iyzico ödeme entegrasyonu, **n11 magenta** temalı React + Vite + Tailwind frontend
+(component-driven, mock-data backed) ve **GitHub Actions → AWS Elastic Beanstalk + ECR +
+RDS** deploy boru hattı.
 
 | | |
 |---|---|
@@ -10,7 +12,8 @@ AWS Elastic Beanstalk + ECR + RDS** deploy boru hattı.
 | **Mesajlaşma** | RabbitMQ 3.13 — topic exchange, durable queues, JSON message converter |
 | **Auth** | JJWT 0.12.6 HS256, BCrypt, gateway-relayed Bearer header |
 | **Ödeme** | iyzipay-java 2.0.65 (sandbox/prod toggle); offline `MockPaymentGateway` fallback |
-| **Frontend** | React 18, Vite 5, Tailwind 3, react-router 6, axios, react-hot-toast |
+| **AI Asistan** | Anthropic Claude `/v1/messages` (model claude-sonnet-4-6) + `MockChatProvider` fallback; ürün katalog grounding ile RAG |
+| **Frontend** | React 18, Vite 5, Tailwind 3 (n11 magenta tema), react-router 6, axios, react-hot-toast; floating sticky chatbot |
 | **DevOps** | Docker Compose, Jib, GitHub Actions, AWS Elastic Beanstalk Multi-Container, AWS ECR, Slack incoming webhook |
 | **Test** | JUnit 5 + Mockito + Testcontainers (PostgreSQL & RabbitMQ) |
 
@@ -35,10 +38,11 @@ AWS Elastic Beanstalk + ECR + RDS** deploy boru hattı.
 ## Mimari
 
 ```
-browser → frontend (nginx) → api-gateway → { auth, product, cart, order, payment }
+browser → frontend (nginx) → api-gateway → { auth, product, cart, order, payment, chatbot }
                                    │
                                    ├─► PostgreSQL  (per-service DB)
                                    ├─► RabbitMQ    (saga.exchange / topic)
+                                   ├─► Anthropic   (chatbot-service → Claude API)
                                    └─► Slack       (notification-service webhook)
 ```
 
@@ -50,11 +54,12 @@ Detaylı diyagram: [`docs/architecture.md`](docs/architecture.md).
 |---|---|---|---|
 | **api-gateway** | 8080 | — | Public giriş, JWT relay, aggregated Swagger UI |
 | **auth-service** | 8081 | `authdb` | `register`, `login`, `users/me`, JWT issuance, `UserRegistered` publisher |
-| **product-service** | 8082 | `productdb` | Pagination + search + categories |
+| **product-service** | 8082 | `productdb` | Pagination + search + categories + `/autocomplete` (header search bar) + ratings |
 | **cart-service** | 8083 | `cartdb` | Sepet CRUD, `OrderConfirmed` consumer (sepeti temizler) |
 | **order-service** | 8084 | `orderdb` | Checkout, state machine, saga publisher + payment-event consumer |
 | **payment-service** | 8085 | `paymentdb` | `OrderCreated` consumer, Iyzico, `Payment*` publisher |
 | **notification-service** | 8086 | — | Saga olaylarını fan-out tüketir, Slack webhook'a yazar |
+| **chatbot-service** | 8087 | `chatbotdb` | `POST /api/chat` — Anthropic Claude entegrasyonu, oturum geçmişi, ürün katalog grounding |
 
 Her servis kendi `pom.xml`'i, kendi Flyway migration set'i ve kendi DB'si ile bağımsız
 olarak deploy edilebilir.
