@@ -1,0 +1,24 @@
+@gateway = http://localhost:8080
+
+### Send first message (no sessionId yet — server creates one)
+# @name first
+POST {{gateway}}/api/chat
+Content-Type: application/json
+
+{
+  "message": "Merhaba! Bana bir kulaklık öner."
+}
+
+### Continue conversation (reuse sessionId from previous response)
+@sessionId = {{first.response.body.sessionId}}
+
+POST {{gateway}}/api/chat
+Content-Type: application/json
+
+{
+  "sessionId": "{{sessionId}}",
+  "message": "Bütçem 500 TL"
+}
+
+### Get full session history
+GET {{gateway}}/api/chat/{{sessionId}}/history
