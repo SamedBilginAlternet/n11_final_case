@@ -4,6 +4,11 @@ server:
 spring:
   application:
     name: order-service
+  data:
+    web:
+      pageable:
+        max-page-size: 100
+        default-page-size: 20
   datasource:
     url: jdbc:postgresql://${POSTGRES_HOST:localhost}:${POSTGRES_PORT:5432}/${POSTGRES_DB:orderdb}?stringtype=unspecified
     username: ${POSTGRES_USER:n11}
