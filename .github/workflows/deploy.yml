@@ -45,7 +45,7 @@ jobs:
       - name: Build & push images via Jib
         working-directory: backend
         run: |
-          for svc in api-gateway auth-service product-service cart-service order-service payment-service notification-service; do
+          for svc in api-gateway auth-service product-service cart-service order-service payment-service notification-service chatbot-service; do
             mvn -B -DskipTests -pl "$svc" -am package
             mvn -B -DskipTests -pl "$svc" \
               -Djib.to.image=${{ env.ECR_REGISTRY }}/n11/${svc}:${{ steps.tag.outputs.tag }} \
