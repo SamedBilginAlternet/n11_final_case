@@ -11,7 +11,7 @@ import static org.assertj.core.api.Assertions.assertThatThrownBy;
 
 class JwtTokenProviderTest {
 
-    private final JwtProperties props = new JwtProperties("test-only-please-change-32-byte-secret-1234567890", 60, "n11-auth");
+    private final JwtProperties props = new JwtProperties("test-only-please-change-32-byte-secret-1234567890", 60, 30, "n11-auth");
     private final JwtTokenProvider provider = new JwtTokenProvider(props);
 
     @Test
@@ -29,7 +29,7 @@ class JwtTokenProviderTest {
 
     @Test
     void rejectsTokenSignedWithDifferentKey() {
-        var other = new JwtTokenProvider(new JwtProperties("a-different-secret-also-32-bytes-long-please-pad", 60, "n11-auth"));
+        var other = new JwtTokenProvider(new JwtProperties("a-different-secret-also-32-bytes-long-please-pad", 60, 30, "n11-auth"));
         User user = User.builder().id(1L).email("x@y.com").fullName("X").role(Role.USER).build();
         String token = other.issue(user).token();
 
