@@ -1,37 +1,44 @@
 import { createContext, useCallback, useContext, useEffect, useState } from 'react';
 import toast from 'react-hot-toast';
-import { api } from '../api/client.js';
+import { api, tokenStore, AUTH_EVENT } from '../api/client.js';
 
 const AuthContext = createContext(null);
 
 export function AuthProvider({ children }) {
-  const [user, setUser] = useState(() => {
-    try {
-      const stored = localStorage.getItem('n11.user');
-      return stored ? JSON.parse(stored) : null;
-    } catch {
-      return null;
-    }
-  });
-  const [token, setToken] = useState(() => localStorage.getItem('n11.token'));
+  const [user, setUser] = useState(() => tokenStore.getUser());
+  const [token, setToken] = useState(() => tokenStore.getAccess());
   const [loading, setLoading] = useState(false);
 
+  // Keep React state in sync with tokenStore mutations from outside the context
+  // (axios refresh interceptor, other tabs, /refresh rotation responses).
   useEffect(() => {
-    if (token) localStorage.setItem('n11.token', token);
-    else localStorage.removeItem('n11.token');
-  }, [token]);
+    const sync = () => {
+      setToken(tokenStore.getAccess());
+      setUser(tokenStore.getUser());
+    };
+    window.addEventListener(AUTH_EVENT, sync);
+    window.addEventListener('storage', sync);
+    return () => {
+      window.removeEventListener(AUTH_EVENT, sync);
+      window.removeEventListener('storage', sync);
+    };
+  }, []);
 
-  useEffect(() => {
-    if (user) localStorage.setItem('n11.user', JSON.stringify(user));
-    else localStorage.removeItem('n11.user');
-  }, [user]);
+  const applyTokenResponse = useCallback((data) => {
+    tokenStore.set({
+      accessToken: data.accessToken,
+      refreshToken: data.refreshToken,
+      user: data.user,
+    });
+    setToken(data.accessToken);
+    setUser(data.user);
+  }, []);
 
   const login = useCallback(async (email, password) => {
     setLoading(true);
     try {
       const { data } = await api.post('/api/auth/login', { email, password });
-      setToken(data.accessToken);
-      setUser(data.user);
+      applyTokenResponse(data);
       toast.success(`Hoş geldin ${data.user.fullName}`);
       return data.user;
     } catch (err) {
@@ -41,7 +48,7 @@ export function AuthProvider({ children }) {
     } finally {
       setLoading(false);
     }
-  }, []);
+  }, [applyTokenResponse]);
 
   const register = useCallback(async (payload) => {
     setLoading(true);
@@ -57,24 +64,37 @@ export function AuthProvider({ children }) {
     }
   }, []);
 
-  const logout = useCallback(() => {
+  const logout = useCallback(async () => {
+    const refreshToken = tokenStore.getRefresh();
+    if (refreshToken) {
+      try {
+        await api.post('/api/auth/logout', { refreshToken });
+      } catch {
+        // Best-effort — even if the server is down, drop local credentials.
+      }
+    }
+    tokenStore.clear();
     setToken(null);
     setUser(null);
     toast('Çıkış yapıldı');
   }, []);
 
-  const hydrateFromToken = useCallback(async (newToken) => {
+  const hydrateFromOAuth = useCallback(async ({ accessToken, refreshToken }) => {
     setLoading(true);
-    setToken(newToken);
+    tokenStore.set({ accessToken, refreshToken });
+    setToken(accessToken);
     try {
       const { data } = await api.get('/api/users/me', {
-        headers: { Authorization: `Bearer ${newToken}` },
+        headers: { Authorization: `Bearer ${accessToken}` },
       });
+      tokenStore.set({ user: data });
       setUser(data);
       toast.success(`Hoş geldin ${data.fullName}`);
       return data;
     } catch (err) {
+      tokenStore.clear();
       setToken(null);
+      setUser(null);
       const message = err.response?.data?.message || 'Oturum doğrulanamadı';
       toast.error(message);
       throw err;
@@ -85,7 +105,7 @@ export function AuthProvider({ children }) {
 
   return (
     <AuthContext.Provider
-      value={{ user, token, loading, login, register, logout, hydrateFromToken, isAuthed: !!token }}
+      value={{ user, token, loading, login, register, logout, hydrateFromOAuth, isAuthed: !!token }}
     >
       {children}
     </AuthContext.Provider>

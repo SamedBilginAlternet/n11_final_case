@@ -3,7 +3,7 @@ import { useNavigate } from 'react-router-dom';
 import { useAuth } from '../state/AuthContext.jsx';
 
 export default function OAuthCallbackPage() {
-  const { hydrateFromToken } = useAuth();
+  const { hydrateFromOAuth } = useAuth();
   const navigate = useNavigate();
   const ranRef = useRef(false);
 
@@ -13,17 +13,18 @@ export default function OAuthCallbackPage() {
 
     const fragment = window.location.hash.startsWith('#') ? window.location.hash.slice(1) : '';
     const params = new URLSearchParams(fragment);
-    const token = params.get('token');
+    const accessToken = params.get('token');
+    const refreshToken = params.get('refreshToken');
 
-    if (!token) {
+    if (!accessToken) {
       navigate('/login?oauth_error=missing_token', { replace: true });
       return;
     }
 
-    hydrateFromToken(token)
+    hydrateFromOAuth({ accessToken, refreshToken })
       .then(() => navigate('/', { replace: true }))
       .catch(() => navigate('/login?oauth_error=hydration_failed', { replace: true }));
-  }, [hydrateFromToken, navigate]);
+  }, [hydrateFromOAuth, navigate]);
 
   return (
     <div className="mx-auto mt-12 max-w-md p-6 text-center">
