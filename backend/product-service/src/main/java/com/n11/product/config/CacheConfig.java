@@ -3,6 +3,7 @@ package com.n11.product.config;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.fasterxml.jackson.databind.jsontype.BasicPolymorphicTypeValidator;
 import com.fasterxml.jackson.datatype.jsr310.JavaTimeModule;
+import org.springframework.boot.autoconfigure.condition.ConditionalOnProperty;
 import org.springframework.cache.annotation.EnableCaching;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
@@ -38,6 +39,10 @@ import java.util.Map;
  */
 @Configuration
 @EnableCaching
+// Skip the entire Redis cache wiring when running with spring.cache.type=none
+// (e.g. integration tests that don't want a Redis container). Production keeps
+// the default 'redis' value, so this is a no-op there.
+@ConditionalOnProperty(name = "spring.cache.type", havingValue = "redis", matchIfMissing = true)
 public class CacheConfig {
 
     @Bean
