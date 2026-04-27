@@ -6,8 +6,10 @@ import { useCart } from '../state/CartContext.jsx';
 import { formatCurrency } from '../utils/format.js';
 
 export default function CartPage() {
-  const { cart, refresh, updateQuantity, removeItem } = useCart();
+  const { cart, refresh, updateQuantity, removeItem, applyCoupon, clearCoupon } = useCart();
   const [checkoutLoading, setCheckoutLoading] = useState(false);
+  const [couponInput, setCouponInput] = useState('');
+  const [couponLoading, setCouponLoading] = useState(false);
   const navigate = useNavigate();
 
   async function onCheckout() {
@@ -21,6 +23,20 @@ export default function CartPage() {
       toast.error(err.response?.data?.message || 'Ödeme başarısız');
     } finally {
       setCheckoutLoading(false);
+    }
+  }
+
+  async function onApplyCoupon(e) {
+    e.preventDefault();
+    if (!couponInput.trim()) return;
+    setCouponLoading(true);
+    try {
+      await applyCoupon(couponInput.trim().toUpperCase());
+      setCouponInput('');
+    } catch {
+      // toast already shown
+    } finally {
+      setCouponLoading(false);
     }
   }
 
@@ -75,6 +91,16 @@ export default function CartPage() {
 
       <aside className="card sticky top-4 h-fit space-y-4 p-4">
         <h2 className="text-lg font-semibold">Sipariş Özeti</h2>
+
+        <CouponBlock
+          cart={cart}
+          couponInput={couponInput}
+          setCouponInput={setCouponInput}
+          couponLoading={couponLoading}
+          onApply={onApplyCoupon}
+          onClear={clearCoupon}
+        />
+
         <dl className="space-y-2 text-sm text-gray-600">
           <div className="flex justify-between">
             <dt>Ürün adedi</dt>
@@ -82,8 +108,19 @@ export default function CartPage() {
           </div>
           <div className="flex justify-between">
             <dt>Ara toplam</dt>
-            <dd>{formatCurrency(cart.totalAmount, cart.currency)}</dd>
+            <dd>{formatCurrency(cart.subtotal ?? cart.totalAmount, cart.currency)}</dd>
           </div>
+
+          {cart.discounts?.map((d) => (
+            <div key={`${d.kind}:${d.code}`} className="flex justify-between text-emerald-600">
+              <dt className="flex items-center gap-1.5">
+                <DiscountBadge kind={d.kind} />
+                <span>{d.label}</span>
+              </dt>
+              <dd>-{formatCurrency(d.amount, cart.currency)}</dd>
+            </div>
+          ))}
+
           <div className="flex justify-between">
             <dt>Kargo</dt>
             <dd>Ücretsiz</dd>
@@ -98,5 +135,58 @@ export default function CartPage() {
         </button>
       </aside>
     </div>
+  );
+}
+
+function CouponBlock({ cart, couponInput, setCouponInput, couponLoading, onApply, onClear }) {
+  if (cart.couponCode) {
+    return (
+      <div className="rounded-md border border-emerald-200 bg-emerald-50 p-3 text-sm">
+        <div className="flex items-center justify-between">
+          <span className="font-medium text-emerald-700">Kupon: {cart.couponCode}</span>
+          <button onClick={onClear} className="text-xs text-emerald-700 hover:underline">
+            Kaldır
+          </button>
+        </div>
+      </div>
+    );
+  }
+  return (
+    <form onSubmit={onApply} className="space-y-1">
+      <label htmlFor="coupon" className="block text-xs font-medium text-gray-500">
+        Kupon kodun var mı?
+      </label>
+      <div className="flex gap-2">
+        <input
+          id="coupon"
+          type="text"
+          placeholder="KUPON100"
+          value={couponInput}
+          onChange={(e) => setCouponInput(e.target.value)}
+          className="input flex-1 uppercase"
+          maxLength={40}
+        />
+        <button
+          type="submit"
+          disabled={couponLoading || !couponInput.trim()}
+          className="rounded bg-n11-pink px-3 text-sm font-medium text-white disabled:opacity-50"
+        >
+          {couponLoading ? '…' : 'Uygula'}
+        </button>
+      </div>
+    </form>
+  );
+}
+
+function DiscountBadge({ kind }) {
+  const isCoupon = kind === 'COUPON';
+  return (
+    <span
+      className={`rounded px-1.5 py-0.5 text-[10px] font-bold uppercase ${
+        isCoupon ? 'bg-emerald-100 text-emerald-700' : 'bg-amber-100 text-amber-700'
+      }`}
+    >
+      {isCoupon ? 'Kupon' : 'Kampanya'}
+    </span>
   );
 }
