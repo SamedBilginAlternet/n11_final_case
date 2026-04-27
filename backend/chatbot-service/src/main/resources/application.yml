@@ -19,6 +19,9 @@ spring:
 n11:
   chatbot:
     provider: ${CHATBOT_PROVIDER:MOCK}
+    rate-limit:
+      capacity: ${CHAT_RATE_CAPACITY:20}
+      window-seconds: ${CHAT_RATE_WINDOW_SECONDS:60}
     anthropic:
       api-key: ${ANTHROPIC_API_KEY:}
       base-url: ${ANTHROPIC_BASE_URL:https://api.anthropic.com}
