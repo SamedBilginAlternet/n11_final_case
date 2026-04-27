@@ -2,6 +2,7 @@ package com.n11.auth.security;
 
 import com.n11.auth.config.SocialLoginProperties;
 import com.n11.auth.domain.User;
+import com.n11.auth.service.RefreshTokenService;
 import com.n11.auth.service.SocialLoginService;
 import jakarta.servlet.ServletException;
 import jakarta.servlet.http.HttpServletRequest;
@@ -24,6 +25,7 @@ public class OAuth2LoginSuccessHandler implements AuthenticationSuccessHandler {
 
     private final SocialLoginService socialLoginService;
     private final JwtTokenProvider tokenProvider;
+    private final RefreshTokenService refreshTokenService;
     private final SocialLoginProperties properties;
 
     @Override
@@ -46,10 +48,19 @@ public class OAuth2LoginSuccessHandler implements AuthenticationSuccessHandler {
 
         User user = socialLoginService.upsert(registrationId, subject, email, name);
         JwtTokenProvider.IssuedToken issued = tokenProvider.issue(user);
+        RefreshTokenService.Issued refresh = refreshTokenService.issueNewFamily(
+                user, request.getHeader("User-Agent"), request.getRemoteAddr());
+
+        // URL fragment (not query) keeps tokens out of server access logs and
+        // out of the Referer header on the frontend's first navigation.
+        String fragment = "token=" + issued.token()
+                + "&expiresIn=" + issued.expiresInSeconds()
+                + "&refreshToken=" + refresh.rawToken()
+                + "&refreshExpiresIn=" + refresh.expiresInSeconds();
 
         String redirect = UriComponentsBuilder.fromUriString(properties.frontendBaseUrl())
                 .path(properties.successPath())
-                .fragment("token=" + issued.token() + "&expiresIn=" + issued.expiresInSeconds())
+                .fragment(fragment)
                 .build()
                 .toUriString();
 
