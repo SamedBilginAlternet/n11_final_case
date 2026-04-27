@@ -12,11 +12,11 @@ COPY product-service/pom.xml product-service/pom.xml
 COPY cart-service/pom.xml cart-service/pom.xml
 COPY order-service/pom.xml order-service/pom.xml
 COPY payment-service/pom.xml payment-service/pom.xml
-COPY notification-service/pom.xml notification-service/pom.xml
+COPY chatbot-service/pom.xml chatbot-service/pom.xml
 
 # Pre-fetch deps
 RUN --mount=type=cache,target=/root/.m2 \
-    mvn -B -DskipTests -pl common,api-gateway,auth-service,product-service,cart-service,order-service,payment-service,notification-service \
+    mvn -B -DskipTests -pl common,api-gateway,auth-service,product-service,cart-service,order-service,payment-service,chatbot-service \
         -am dependency:go-offline || true
 
 # Copy sources
@@ -27,7 +27,7 @@ COPY product-service product-service
 COPY cart-service cart-service
 COPY order-service order-service
 COPY payment-service payment-service
-COPY notification-service notification-service
+COPY chatbot-service chatbot-service
 
 ARG SERVICE
 RUN --mount=type=cache,target=/root/.m2 \
