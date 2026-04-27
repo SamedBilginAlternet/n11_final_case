@@ -7,7 +7,10 @@ import com.n11.cart.client.ProductClient;
 import com.n11.cart.client.ProductSnapshot;
 import com.n11.cart.domain.Cart;
 import com.n11.cart.exception.InsufficientStockException;
+import com.n11.cart.pricing.DiscountEngine;
+import com.n11.cart.pricing.Quote;
 import com.n11.cart.repository.CartRepository;
+import com.n11.cart.repository.CouponRepository;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
@@ -16,6 +19,7 @@ import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
 
 import java.math.BigDecimal;
+import java.util.List;
 import java.util.Optional;
 
 import static org.assertj.core.api.Assertions.assertThat;
@@ -28,13 +32,23 @@ class CartServiceTest {
 
     @Mock CartRepository repository;
     @Mock ProductClient productClient;
+    @Mock DiscountEngine discountEngine;
+    @Mock CouponRepository couponRepository;
 
     private final CartMapper mapper = Mappers.getMapper(CartMapper.class);
     private CartService service;
 
     @BeforeEach
     void wire() {
-        service = new CartService(repository, productClient, mapper);
+        service = new CartService(repository, productClient, mapper, discountEngine, couponRepository);
+        // Default: no discounts — engine echoes a flat receipt with subtotal = total
+        when(discountEngine.quote(any(Cart.class))).thenAnswer(inv -> {
+            Cart c = inv.getArgument(0);
+            BigDecimal subtotal = c.getItems().stream()
+                    .map(i -> i.getUnitPrice().multiply(BigDecimal.valueOf(i.getQuantity())))
+                    .reduce(BigDecimal.ZERO, BigDecimal::add);
+            return new Quote(subtotal, List.of(), BigDecimal.ZERO, subtotal);
+        });
     }
 
     @Test
@@ -49,6 +63,7 @@ class CartServiceTest {
         assertThat(cart.items()).hasSize(1);
         assertThat(cart.items().get(0).quantity()).isEqualTo(2);
         assertThat(cart.totalAmount()).isEqualByComparingTo("129998.00");
+        assertThat(cart.subtotal()).isEqualByComparingTo("129998.00");
         assertThat(cart.totalQuantity()).isEqualTo(2);
     }
 
@@ -64,8 +79,8 @@ class CartServiceTest {
     }
 
     @Test
-    void clearEmptiesItems() {
-        Cart cart = Cart.builder().id(7L).userId(1L).build();
+    void clearEmptiesItemsAndDropsCoupon() {
+        Cart cart = Cart.builder().id(7L).userId(1L).couponCode("KUPON100").build();
         cart.addItem(com.n11.cart.domain.CartItem.builder()
                 .productId(1L).productName("X").quantity(1)
                 .unitPrice(new BigDecimal("1.0")).currency("TRY").build());
@@ -75,5 +90,6 @@ class CartServiceTest {
         service.clear(1L);
 
         assertThat(cart.getItems()).isEmpty();
+        assertThat(cart.getCouponCode()).isNull();
     }
 }
