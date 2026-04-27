@@ -1,26 +1,50 @@
-import { useState } from 'react';
+import { useEffect, useState } from 'react';
 import { Link, useLocation, useNavigate } from 'react-router-dom';
 import toast from 'react-hot-toast';
+import { MapPin, Plus, Star } from 'lucide-react';
 import { api } from '../api/client.js';
+import { useAuth } from '../state/AuthContext.jsx';
 import { useCart } from '../state/CartContext.jsx';
 import { formatCurrency } from '../utils/format.js';
 
 export default function CartPage() {
   const { cart, refresh, updateQuantity, removeItem, applyCoupon, clearCoupon, isGuest } = useCart();
+  const { isAuthed } = useAuth();
   const [checkoutLoading, setCheckoutLoading] = useState(false);
   const [couponInput, setCouponInput] = useState('');
   const [couponLoading, setCouponLoading] = useState(false);
+  const [addresses, setAddresses] = useState([]);
+  const [selectedAddressId, setSelectedAddressId] = useState(null);
+  const [addressesLoaded, setAddressesLoaded] = useState(false);
   const navigate = useNavigate();
   const location = useLocation();
+
+  useEffect(() => {
+    if (!isAuthed) {
+      setAddressesLoaded(true);
+      return;
+    }
+    api.get('/api/addresses').then(({ data }) => {
+      setAddresses(data);
+      const def = data.find((a) => a.defaultAddress);
+      if (def) setSelectedAddressId(def.id);
+      else if (data[0]) setSelectedAddressId(data[0].id);
+      setAddressesLoaded(true);
+    }).catch(() => setAddressesLoaded(true));
+  }, [isAuthed]);
 
   async function onCheckout() {
     if (isGuest) {
       navigate('/login', { state: { from: location } });
       return;
     }
+    if (!selectedAddressId) {
+      toast.error('Önce bir teslimat adresi seç');
+      return;
+    }
     setCheckoutLoading(true);
     try {
-      const { data } = await api.post('/api/orders/checkout');
+      const { data } = await api.post('/api/orders/checkout', { addressId: selectedAddressId });
       toast.success(`Siparişin oluşturuldu (#${data.id})`);
       await refresh();
       navigate('/orders');
@@ -60,6 +84,13 @@ export default function CartPage() {
     <div className="grid gap-6 lg:grid-cols-3">
       <div className="space-y-3 lg:col-span-2">
         {isGuest && <GuestBanner />}
+        {!isGuest && addressesLoaded && (
+          <AddressPicker
+            addresses={addresses}
+            selectedId={selectedAddressId}
+            onSelect={setSelectedAddressId}
+          />
+        )}
         {cart.items.map((item) => (
           <article key={item.id} className="card flex gap-4 p-3">
             <div className="h-24 w-24 overflow-hidden rounded bg-gray-100">
@@ -140,15 +171,80 @@ export default function CartPage() {
             <dd>{formatCurrency(cart.totalAmount, cart.currency)}</dd>
           </div>
         </dl>
-        <button onClick={onCheckout} disabled={checkoutLoading} className="btn-primary w-full">
+        <button
+          onClick={onCheckout}
+          disabled={checkoutLoading || (!isGuest && !selectedAddressId)}
+          className="btn-primary w-full"
+        >
           {checkoutLoading
             ? 'Sipariş oluşturuluyor…'
             : isGuest
             ? 'Devam etmek için giriş yap'
+            : !selectedAddressId
+            ? 'Önce adres seç'
             : 'Siparişi Tamamla'}
         </button>
       </aside>
     </div>
+  );
+}
+
+function AddressPicker({ addresses, selectedId, onSelect }) {
+  if (addresses.length === 0) {
+    return (
+      <div className="card flex items-center justify-between gap-3 p-4">
+        <div className="flex items-center gap-2">
+          <MapPin className="h-5 w-5 text-n11-pink" />
+          <div>
+            <p className="text-sm font-medium">Teslimat adresin yok</p>
+            <p className="text-xs text-gray-500">Sipariş vermek için önce bir adres ekle.</p>
+          </div>
+        </div>
+        <Link to="/account/addresses" className="btn-primary flex items-center gap-1.5 text-sm">
+          <Plus className="h-4 w-4" /> Adres ekle
+        </Link>
+      </div>
+    );
+  }
+  return (
+    <section className="card space-y-2 p-4">
+      <header className="flex items-center justify-between">
+        <h3 className="flex items-center gap-2 text-sm font-semibold">
+          <MapPin className="h-4 w-4 text-n11-pink" /> Teslimat Adresi
+        </h3>
+        <Link to="/account/addresses" className="text-xs text-n11-pink hover:underline">
+          Yönet
+        </Link>
+      </header>
+      <div className="grid gap-2 sm:grid-cols-2">
+        {addresses.map((a) => {
+          const active = selectedId === a.id;
+          return (
+            <button
+              key={a.id}
+              type="button"
+              onClick={() => onSelect(a.id)}
+              className={`rounded-md border px-3 py-2 text-left text-sm transition ${
+                active ? 'border-n11-pink bg-n11-pinkBg' : 'border-gray-200 hover:bg-gray-50'
+              }`}
+            >
+              <div className="flex items-center justify-between">
+                <span className="font-medium text-gray-800">{a.title}</span>
+                {a.defaultAddress && (
+                  <span className="flex items-center gap-1 text-[10px] font-semibold uppercase text-amber-600">
+                    <Star className="h-3 w-3" fill="currentColor" /> Varsayılan
+                  </span>
+                )}
+              </div>
+              <p className="text-xs text-gray-500">{a.recipientName} · {a.phone}</p>
+              <p className="mt-1 line-clamp-2 text-xs text-gray-600">
+                {a.line1}, {[a.district, a.city].filter(Boolean).join(' / ')}
+              </p>
+            </button>
+          );
+        })}
+      </div>
+    </section>
   );
 }
 
