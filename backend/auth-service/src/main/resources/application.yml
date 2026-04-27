@@ -1,0 +1,54 @@
+server:
+  port: ${SERVER_PORT:8081}
+  forward-headers-strategy: framework
+
+spring:
+  application:
+    name: auth-service
+  datasource:
+    url: jdbc:postgresql://${POSTGRES_HOST:localhost}:${POSTGRES_PORT:5432}/${POSTGRES_DB:authdb}
+    username: ${POSTGRES_USER:n11}
+    password: ${POSTGRES_PASSWORD:n11pw}
+  jpa:
+    hibernate:
+      ddl-auto: validate
+    open-in-view: false
+    properties:
+      hibernate:
+        jdbc.time_zone: UTC
+  flyway:
+    enabled: true
+    baseline-on-migrate: true
+  rabbitmq:
+    host: ${RABBITMQ_HOST:localhost}
+    port: ${RABBITMQ_PORT:5672}
+    username: ${RABBITMQ_USER:guest}
+    password: ${RABBITMQ_PASSWORD:guest}
+
+n11:
+  jwt:
+    secret: ${JWT_SECRET:dev-only-please-change-32-byte-secret-1234567890}
+    access-ttl-minutes: ${JWT_ACCESS_TTL_MIN:60}
+    issuer: n11-auth
+
+management:
+  endpoints:
+    web:
+      exposure:
+        include: health,info,metrics
+  endpoint:
+    health:
+      show-details: when-authorized
+
+springdoc:
+  swagger-ui:
+    path: /swagger-ui.html
+  api-docs:
+    path: /v3/api-docs
+
+logging:
+  pattern:
+    level: "%5p [%X{correlationId:-}]"
+  level:
+    root: INFO
+    com.n11: DEBUG
