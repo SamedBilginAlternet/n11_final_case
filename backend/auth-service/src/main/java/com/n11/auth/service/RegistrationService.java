@@ -6,12 +6,15 @@ import com.n11.auth.api.mapper.UserMapper;
 import com.n11.auth.domain.Role;
 import com.n11.auth.domain.User;
 import com.n11.auth.exception.EmailAlreadyTakenException;
+import com.n11.auth.messaging.UserEventPublisher;
 import com.n11.auth.repository.UserRepository;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
+import org.springframework.transaction.support.TransactionSynchronization;
+import org.springframework.transaction.support.TransactionSynchronizationManager;
 
 @Service
 @RequiredArgsConstructor
@@ -21,6 +24,7 @@ public class RegistrationService {
     private final UserRepository userRepository;
     private final PasswordEncoder passwordEncoder;
     private final UserMapper userMapper;
+    private final UserEventPublisher eventPublisher;
 
     @Transactional
     public UserDto register(RegisterRequest request) {
@@ -39,6 +43,14 @@ public class RegistrationService {
 
         User saved = userRepository.save(user);
         log.info("Registered user id={} email={}", saved.getId(), saved.getEmail());
+
+        TransactionSynchronizationManager.registerSynchronization(new TransactionSynchronization() {
+            @Override
+            public void afterCommit() {
+                eventPublisher.publishRegistered(saved.getId(), saved.getEmail(), saved.getFullName());
+            }
+        });
+
         return userMapper.toDto(saved);
     }
 }
