@@ -1,0 +1,43 @@
+server:
+  port: ${SERVER_PORT:8083}
+
+spring:
+  application:
+    name: cart-service
+  datasource:
+    url: jdbc:postgresql://${POSTGRES_HOST:localhost}:${POSTGRES_PORT:5432}/${POSTGRES_DB:cartdb}
+    username: ${POSTGRES_USER:n11}
+    password: ${POSTGRES_PASSWORD:n11pw}
+  jpa:
+    hibernate:
+      ddl-auto: validate
+    open-in-view: false
+  flyway:
+    enabled: true
+    baseline-on-migrate: true
+  rabbitmq:
+    host: ${RABBITMQ_HOST:localhost}
+    port: ${RABBITMQ_PORT:5672}
+    username: ${RABBITMQ_USER:guest}
+    password: ${RABBITMQ_PASSWORD:guest}
+
+n11:
+  jwt:
+    secret: ${JWT_SECRET:dev-only-please-change-32-byte-secret-1234567890}
+    issuer: n11-auth
+  services:
+    product-base-url: ${PRODUCT_SERVICE_URL:http://localhost:8082}
+
+management:
+  endpoints:
+    web:
+      exposure:
+        include: health,info,metrics
+
+springdoc:
+  swagger-ui:
+    path: /swagger-ui.html
+
+logging:
+  pattern:
+    level: "%5p [%X{correlationId:-}]"
