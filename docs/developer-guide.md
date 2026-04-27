@@ -288,12 +288,17 @@ password hash'ini görmesin.
   servisler `JwtParser` (parse-only) kullanır.
 - **OAuth2 social login Spring Security OAuth2 Client ile**, Keycloak ile değil. Tek
   feature için 1 GB RAM'lik IDP overkill (önceki tartışma).
-- **Token URL fragment'ında redirect**: `OAuth2LoginSuccessHandler` browser'ı `${frontend}/auth/callback#token=...`'a yönlendirir. Fragment server log'larına düşmez,
+- **Token URL fragment'ında redirect**: `OAuth2LoginSuccessHandler` browser'ı `${frontend}/auth/callback#token=...&refreshToken=...`'a yönlendirir. Fragment server log'larına düşmez,
   cookie cookie-flag drama'ları yok.
-- **Login + register rate-limit** common'daki `TokenBucketRateLimitFilter` ile, 10/dk per IP.
-  Brute force / credential stuffing koruması.
+- **Login + register + refresh rate-limit** common'daki `TokenBucketRateLimitFilter` ile, 10/dk per IP.
+  Brute force / credential stuffing + refresh-token spam koruması.
 - **OAuth2 user upsert link-by-email**: aynı email ile şifreli hesap varsa Google ile login
   bağlantı kurar (ikinci hesap yaratmaz). Yeni email'se yeni user, `password_hash IS NULL`.
+- **Refresh token rotasyonu + family-level reuse detection**. `/api/auth/refresh` her
+  çağrıda eski tokeni revoke + yeni token issue eder; `replaced_by_id` zinciri tutulur.
+  Aynı refresh ikinci kez gelirse (revoke edilmiş ama presented) → tüm `family_id` revoke
+  edilir, kullanıcı tekrar login'e zorlanır. Refresh tokenleri DB'de SHA-256 hash'li tutulur:
+  dump leak'i kullanılabilir token vermez. Detay: `RefreshTokenService`.
 
 **Niye HS256 secret paylaşılıyor?** Demo / bootcamp scope. Production'da RS256 + JWKS:
 auth-service `/.well-known/jwks.json` expose eder, diğerleri public key ile doğrular. Bu
@@ -303,16 +308,17 @@ yapılabilir.
 **Dosya haritası**:
 ```
 auth-service/src/main/java/com/n11/auth/
-├── api/AuthController.java                       # /register, /login
+├── api/AuthController.java                       # /register, /login, /refresh, /logout
 ├── api/UserController.java                       # /users/me
 ├── service/RegistrationService.java              # User + bcrypt hash
-├── service/AuthenticationService.java            # bcrypt verify + JWT issue
+├── service/AuthenticationService.java            # bcrypt verify + access/refresh issue, refresh rotate
+├── service/RefreshTokenService.java              # opaque token issue/rotate/revoke + reuse detection
 ├── service/SocialLoginService.java               # OAuth user upsert + link-by-email
 ├── security/JwtTokenProvider.java                # issue() + parse() (issue burada tek)
-├── security/OAuth2LoginSuccessHandler.java       # JWT mint + frontend redirect
+├── security/OAuth2LoginSuccessHandler.java       # JWT + refresh mint + frontend redirect
 ├── security/GitHubEmailAwareUserService.java     # /user/emails fallback
 ├── config/SecurityConfig.java                    # JWT chain + login rate limit + oauth2Login conditional
-├── config/JwtProperties.java                     # n11.jwt.{secret, issuer, accessTtlMinutes}
+├── config/JwtProperties.java                     # n11.jwt.{secret, issuer, accessTtlMinutes, refreshTtlDays}
 └── config/SocialLoginProperties.java             # n11.social-login.{google, github, frontendBaseUrl}
 ```
 
@@ -640,7 +646,6 @@ düşük.
 | **Mass-assignment koruması** | Register/login DTO'ları zaten role/userId field'ı yok; bilinçli minimal contract |
 | **CSRF** | Stateless JWT API — CSRF cookie-based session pattern'inde anlamlı, burada değil |
 | **Account lockout / CAPTCHA** | Login rate-limit (10/dk per IP) brute force'a yeterli; CAPTCHA UX kayıp |
-| **Refresh token** | Access token TTL 60 dakika, kullanıcı yeniden login OK. Refresh flow karmaşıklığı demo için fazla |
 | **Soft delete** | İhtiyaç olmadı — order CANCELLED status'ü row'u tutar, gerçek delete yok |
 | **Audit log table** | CRUD audit production gerekliği, prototip için fazla |
 | **CQRS / Event sourcing** | Read load yok, replay senaryosu yok |

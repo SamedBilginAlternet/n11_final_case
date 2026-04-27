@@ -24,3 +24,20 @@ Content-Type: application/json
 ### Me
 GET {{gateway}}/api/users/me
 Authorization: Bearer {{token}}
+
+### Refresh — exchange refresh token for new access + rotated refresh
+# @name refresh
+POST {{gateway}}/api/auth/refresh
+Content-Type: application/json
+
+{
+  "refreshToken": "{{login.response.body.refreshToken}}"
+}
+
+### Logout — revoke this refresh token
+POST {{gateway}}/api/auth/logout
+Content-Type: application/json
+
+{
+  "refreshToken": "{{login.response.body.refreshToken}}"
+}

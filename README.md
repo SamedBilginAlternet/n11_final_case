@@ -10,7 +10,7 @@ deploy boru hattı (her deploy'da Slack bildirimi).
 |---|---|
 | **Backend** | Spring Boot 3.3.4, Java 21, Spring Cloud Gateway 2023.0.3, JPA + Flyway + PostgreSQL 16 |
 | **Mesajlaşma** | RabbitMQ 3.13 — topic exchange, durable queues, JSON message converter |
-| **Auth** | JJWT 0.12.6 HS256, BCrypt, gateway-relayed Bearer header |
+| **Auth** | JJWT 0.12.6 HS256, BCrypt, gateway-relayed Bearer header, refresh token rotation + reuse-detection |
 | **Ödeme** | iyzipay-java 2.0.65 (sandbox/prod toggle); offline `MockPaymentGateway` fallback |
 | **AI Asistan** | Pluggable provider — **Groq** (free, OpenAI-compatible, default) / **Anthropic Claude** / **Mock**; ürün katalog grounding ile RAG |
 | **Frontend** | React 18, Vite 5, Tailwind 3 (n11 magenta tema), react-router 6, axios, react-hot-toast; floating sticky chatbot |
@@ -53,7 +53,7 @@ Detaylı diyagram: [`docs/architecture.md`](docs/architecture.md).
 | Servis | Port | DB | Görev |
 |---|---|---|---|
 | **api-gateway** | 8080 | — | Public giriş, JWT relay, aggregated Swagger UI |
-| **auth-service** | 8081 | `authdb` | `register`, `login`, `users/me`, JWT issuance |
+| **auth-service** | 8081 | `authdb` | `register`, `login`, `refresh`, `logout`, `users/me`, access JWT + rotating opaque refresh token |
 | **product-service** | 8082 | `productdb` | Pagination + search + categories + `/autocomplete` (header search bar) + ratings |
 | **cart-service** | 8083 | `cartdb` | Sepet CRUD, `OrderConfirmed` consumer (sepeti temizler) |
 | **order-service** | 8084 | `orderdb` | Checkout, state machine, saga publisher + payment-event consumer |
@@ -225,8 +225,8 @@ docker compose up --build
 2. Spring Security PKCE+state ile Google'a yönlendirir
 3. Google → `/api/auth/oauth2/callback/google` → kullanıcı (provider, subject) ile var ise eşlenir, yoksa e-posta'ya göre link'lenir, yoksa yeni `password_hash IS NULL` user yaratılır
 4. Auth-service kendi mevcut HS256 JWT'sini issue eder
-5. Tarayıcı `${FRONTEND_BASE_URL}/auth/callback#token=...`'a yönlendirilir (token URL fragment'ında — server log'larında değil)
-6. Frontend `/auth/callback` route'u token'ı yakalar → `/api/users/me` ile kullanıcıyı çeker → ana sayfaya gider
+5. Tarayıcı `${FRONTEND_BASE_URL}/auth/callback#token=...&refreshToken=...`'a yönlendirilir (her iki token URL fragment'ında — server log'larında değil)
+6. Frontend `/auth/callback` route'u tokenları yakalar → `/api/users/me` ile kullanıcıyı çeker → ana sayfaya gider; access süresi dolduğunda axios interceptor `/api/auth/refresh` ile yeni access + rotated refresh alır
 
 GitHub'ın `email` alanı public değilse `user:email` scope'u ile `/user/emails`'tan birincil verified e-posta otomatik çekilir (`GitHubEmailAwareUserService`).
 
