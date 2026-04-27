@@ -146,6 +146,25 @@ services:
       SLACK_WEBHOOK_URL: ${SLACK_WEBHOOK_URL:-}
     ports: ["8086:8086"]
 
+  chatbot-service:
+    build:
+      context: ./backend
+      args:
+        SERVICE: chatbot-service
+    image: n11/chatbot-service:1.0.0
+    depends_on:
+      postgres: { condition: service_healthy }
+      product-service: { condition: service_started }
+    environment:
+      <<: [*postgres-env, *jvm-defaults]
+      SERVER_PORT: 8087
+      POSTGRES_DB: chatbotdb
+      CHATBOT_PROVIDER: ${CHATBOT_PROVIDER:-MOCK}
+      ANTHROPIC_API_KEY: ${ANTHROPIC_API_KEY:-}
+      ANTHROPIC_MODEL: ${ANTHROPIC_MODEL:-claude-sonnet-4-6}
+      PRODUCT_SERVICE_URL: http://product-service:8082
+    ports: ["8087:8087"]
+
   api-gateway:
     build:
       context: ./backend
@@ -158,6 +177,7 @@ services:
       cart-service: { condition: service_started }
       order-service: { condition: service_started }
       payment-service: { condition: service_started }
+      chatbot-service: { condition: service_started }
     environment:
       <<: *jvm-defaults
       SERVER_PORT: 8080
@@ -166,6 +186,7 @@ services:
       CART_SERVICE_URL: http://cart-service:8083
       ORDER_SERVICE_URL: http://order-service:8084
       PAYMENT_SERVICE_URL: http://payment-service:8085
+      CHATBOT_SERVICE_URL: http://chatbot-service:8087
     ports: ["8080:8080"]
 
   frontend:
