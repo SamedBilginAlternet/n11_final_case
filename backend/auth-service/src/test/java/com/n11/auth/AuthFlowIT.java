@@ -55,6 +55,7 @@ class AuthFlowIT {
                         .content(mapper.writeValueAsString(new LoginRequest("it@n11.local", "verysecret"))))
                 .andExpect(status().isOk())
                 .andExpect(jsonPath("$.accessToken").value(notNullValue()))
+                .andExpect(jsonPath("$.refreshToken").value(notNullValue()))
                 .andReturn().getResponse().getContentAsString();
 
         JsonNode body = mapper.readTree(loginBody);
@@ -64,5 +65,36 @@ class AuthFlowIT {
                 .andExpect(status().isOk())
                 .andExpect(jsonPath("$.email").value("it@n11.local"))
                 .andExpect(jsonPath("$.role").value("USER"));
+    }
+
+    @Test
+    void refreshRotatesAndReuseDetectionRevokes() throws Exception {
+        mvc.perform(post("/api/auth/register").contentType(APPLICATION_JSON)
+                        .content(mapper.writeValueAsString(new RegisterRequest(
+                                "rotate@n11.local", "verysecret", "Rotate User"))))
+                .andExpect(status().isCreated());
+
+        String loginBody = mvc.perform(post("/api/auth/login").contentType(APPLICATION_JSON)
+                        .content(mapper.writeValueAsString(new LoginRequest("rotate@n11.local", "verysecret"))))
+                .andExpect(status().isOk())
+                .andReturn().getResponse().getContentAsString();
+        String firstRefresh = mapper.readTree(loginBody).get("refreshToken").asText();
+
+        // First rotation should succeed and return a new refresh
+        String rotated = mvc.perform(post("/api/auth/refresh").contentType(APPLICATION_JSON)
+                        .content("{\"refreshToken\":\"" + firstRefresh + "\"}"))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.refreshToken").value(notNullValue()))
+                .andReturn().getResponse().getContentAsString();
+        String secondRefresh = mapper.readTree(rotated).get("refreshToken").asText();
+
+        // Replaying the OLD (already-revoked) refresh must be rejected and
+        // must invalidate the rotated one too — the family is compromised.
+        mvc.perform(post("/api/auth/refresh").contentType(APPLICATION_JSON)
+                        .content("{\"refreshToken\":\"" + firstRefresh + "\"}"))
+                .andExpect(status().isUnauthorized());
+        mvc.perform(post("/api/auth/refresh").contentType(APPLICATION_JSON)
+                        .content("{\"refreshToken\":\"" + secondRefresh + "\"}"))
+                .andExpect(status().isUnauthorized());
     }
 }

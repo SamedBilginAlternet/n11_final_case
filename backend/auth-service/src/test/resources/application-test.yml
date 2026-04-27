@@ -9,4 +9,5 @@ n11:
   jwt:
     secret: integration-test-32-byte-secret-padding-1234
     access-ttl-minutes: 60
+    refresh-ttl-days: 30
     issuer: n11-auth
