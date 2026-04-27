@@ -10,6 +10,8 @@ public record ProductSummaryDto(
         String currency,
         Integer stock,
         String imageUrl,
+        BigDecimal ratingAverage,
+        Integer ratingCount,
         Long categoryId,
         String categoryName
 ) {}

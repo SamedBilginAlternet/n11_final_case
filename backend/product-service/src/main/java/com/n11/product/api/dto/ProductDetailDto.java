@@ -12,6 +12,8 @@ public record ProductDetailDto(
         String currency,
         Integer stock,
         String imageUrl,
+        BigDecimal ratingAverage,
+        Integer ratingCount,
         Long categoryId,
         String categoryName,
         String categorySlug,

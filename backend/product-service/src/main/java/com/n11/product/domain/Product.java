@@ -43,6 +43,12 @@ public class Product {
     @Column(name = "image_url", length = 500)
     private String imageUrl;
 
+    @Column(name = "rating_average", nullable = false, precision = 3, scale = 2)
+    private BigDecimal ratingAverage;
+
+    @Column(name = "rating_count", nullable = false)
+    private Integer ratingCount;
+
     @ManyToOne(fetch = FetchType.LAZY, optional = false)
     @JoinColumn(name = "category_id", nullable = false)
     private Category category;
@@ -60,6 +66,8 @@ public class Product {
         this.updatedAt = now;
         if (this.currency == null) this.currency = "TRY";
         if (this.stock == null) this.stock = 0;
+        if (this.ratingAverage == null) this.ratingAverage = BigDecimal.ZERO;
+        if (this.ratingCount == null) this.ratingCount = 0;
     }
 
     @PreUpdate
