@@ -25,6 +25,7 @@ import java.util.Optional;
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
 import static org.mockito.ArgumentMatchers.any;
+import static org.mockito.Mockito.lenient;
 import static org.mockito.Mockito.when;
 
 @ExtendWith(MockitoExtension.class)
@@ -41,8 +42,10 @@ class CartServiceTest {
     @BeforeEach
     void wire() {
         service = new CartService(repository, productClient, mapper, discountEngine, couponRepository);
-        // Default: no discounts — engine echoes a flat receipt with subtotal = total
-        when(discountEngine.quote(any(Cart.class))).thenAnswer(inv -> {
+        // Default 'no discounts' quote. lenient() because two of three tests bail
+        // out (InsufficientStockException, clear()) before quoteAndMap is reached;
+        // strict-stubs would otherwise fail them with UnnecessaryStubbingException.
+        lenient().when(discountEngine.quote(any(Cart.class))).thenAnswer(inv -> {
             Cart c = inv.getArgument(0);
             BigDecimal subtotal = c.getItems().stream()
                     .map(i -> i.getUnitPrice().multiply(BigDecimal.valueOf(i.getQuantity())))
