@@ -2,8 +2,8 @@ package com.n11.cart.messaging;
 
 import com.n11.common.saga.SagaTopology;
 import org.springframework.amqp.core.*;
+import org.springframework.amqp.rabbit.config.SimpleRabbitListenerContainerFactory;
 import org.springframework.amqp.rabbit.connection.ConnectionFactory;
-import org.springframework.amqp.rabbit.listener.SimpleMessageListenerContainer;
 import org.springframework.amqp.support.converter.Jackson2JsonMessageConverter;
 import org.springframework.amqp.support.converter.MessageConverter;
 import org.springframework.context.annotation.Bean;
@@ -36,12 +36,13 @@ public class RabbitConfig {
     }
 
     @Bean
-    public SimpleMessageListenerContainer cartListenerContainer(ConnectionFactory cf, MessageConverter converter) {
-        SimpleMessageListenerContainer c = new SimpleMessageListenerContainer(cf);
-        c.setQueueNames(SagaTopology.Queue.CART_ORDER_CONFIRMED);
-        c.setMessageConverter(converter);
-        c.setConcurrentConsumers(2);
-        c.setMaxConcurrentConsumers(8);
-        return c;
+    public SimpleRabbitListenerContainerFactory rabbitListenerContainerFactory(
+            ConnectionFactory cf, MessageConverter converter) {
+        SimpleRabbitListenerContainerFactory factory = new SimpleRabbitListenerContainerFactory();
+        factory.setConnectionFactory(cf);
+        factory.setMessageConverter(converter);
+        factory.setConcurrentConsumers(2);
+        factory.setMaxConcurrentConsumers(8);
+        return factory;
     }
 }
