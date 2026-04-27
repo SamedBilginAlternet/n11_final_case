@@ -40,27 +40,27 @@ export default function CartPage() {
       <div className="space-y-3 lg:col-span-2">
         {cart.items.map((item) => (
           <article key={item.id} className="card flex gap-4 p-3">
-            <div className="h-24 w-24 overflow-hidden rounded bg-slate-100">
+            <div className="h-24 w-24 overflow-hidden rounded bg-gray-100">
               {item.imageUrl && <img src={item.imageUrl} alt={item.productName} className="h-full w-full object-cover" />}
             </div>
             <div className="flex flex-1 flex-col justify-between">
               <div className="flex items-start justify-between gap-3">
-                <h3 className="text-sm font-medium text-slate-800">{item.productName}</h3>
-                <button onClick={() => removeItem(item.id)} className="text-xs text-slate-400 hover:text-red-500">
+                <h3 className="text-sm font-medium text-gray-800">{item.productName}</h3>
+                <button onClick={() => removeItem(item.id)} className="text-xs text-gray-400 hover:text-red-500">
                   Kaldır
                 </button>
               </div>
               <div className="flex items-center justify-between">
-                <div className="flex items-center gap-2 text-sm text-slate-500">
+                <div className="flex items-center gap-2 text-sm text-gray-500">
                   <button
-                    className="rounded border border-slate-200 px-2 hover:bg-slate-50"
+                    className="rounded border border-gray-200 px-2 hover:bg-gray-50"
                     onClick={() => updateQuantity(item.id, Math.max(1, item.quantity - 1))}
                   >
                     −
                   </button>
                   <span className="w-8 text-center font-medium">{item.quantity}</span>
                   <button
-                    className="rounded border border-slate-200 px-2 hover:bg-slate-50"
+                    className="rounded border border-gray-200 px-2 hover:bg-gray-50"
                     onClick={() => updateQuantity(item.id, item.quantity + 1)}
                   >
                     +
@@ -75,7 +75,7 @@ export default function CartPage() {
 
       <aside className="card sticky top-4 h-fit space-y-4 p-4">
         <h2 className="text-lg font-semibold">Sipariş Özeti</h2>
-        <dl className="space-y-2 text-sm text-slate-600">
+        <dl className="space-y-2 text-sm text-gray-600">
           <div className="flex justify-between">
             <dt>Ürün adedi</dt>
             <dd>{cart.totalQuantity}</dd>
@@ -88,7 +88,7 @@ export default function CartPage() {
             <dt>Kargo</dt>
             <dd>Ücretsiz</dd>
           </div>
-          <div className="flex justify-between border-t border-slate-200 pt-2 text-base font-semibold text-slate-900">
+          <div className="flex justify-between border-t border-gray-200 pt-2 text-base font-semibold text-gray-900">
             <dt>Toplam</dt>
             <dd>{formatCurrency(cart.totalAmount, cart.currency)}</dd>
           </div>
