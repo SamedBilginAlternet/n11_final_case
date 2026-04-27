@@ -34,9 +34,10 @@ public class ChatController {
         return new ChatReply(turn.sessionId(), turn.reply(), turn.createdAt());
     }
 
-    @Operation(summary = "Get full history for a session")
+    @Operation(summary = "Get full history for a session — caller must own it (X-Guest-Token match).")
     @GetMapping("/{sessionId}/history")
-    public List<HistoryMessage> history(@PathVariable String sessionId) {
-        return messageMapper.toDtos(chatService.history(sessionId));
+    public List<HistoryMessage> history(@PathVariable String sessionId,
+                                        @RequestHeader(value = "X-Guest-Token", required = false) String guestToken) {
+        return messageMapper.toDtos(chatService.history(sessionId, null, guestToken));
     }
 }

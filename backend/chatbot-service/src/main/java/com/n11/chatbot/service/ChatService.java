@@ -9,11 +9,14 @@ import com.n11.chatbot.repository.ChatMessageRepository;
 import com.n11.chatbot.repository.ChatSessionRepository;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
+import org.springframework.http.HttpStatus;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
+import org.springframework.web.server.ResponseStatusException;
 
 import java.util.ArrayList;
 import java.util.List;
+import java.util.Objects;
 
 @Service
 @RequiredArgsConstructor
@@ -65,7 +68,28 @@ public class ChatService {
         return new ChatTurn(session.getId(), assistant.getContent(), assistant.getCreatedAt().toString());
     }
 
-    public List<ChatMessage> history(String sessionId) {
+    /**
+     * Returns the full message log of a session, but only to the identity that
+     * owns it. Ownership is matched on (userId) for authed sessions or
+     * (guestToken) for anonymous ones — the same identifier the session was
+     * created with via {@link #send}.
+     *
+     * <p>404 — not 403 — is returned for both 'session does not exist' and
+     * 'session belongs to someone else'. Same anti-enumeration policy used in
+     * the payment service: a non-owner can't even confirm whether a sessionId
+     * is in use.</p>
+     */
+    public List<ChatMessage> history(String sessionId, Long callerUserId, String callerGuestToken) {
+        ChatSession session = sessionRepository.findById(sessionId)
+                .orElseThrow(() -> new ResponseStatusException(HttpStatus.NOT_FOUND, "Session not found"));
+
+        boolean ownsAsUser = callerUserId != null && Objects.equals(callerUserId, session.getUserId());
+        boolean ownsAsGuest = callerGuestToken != null && !callerGuestToken.isBlank()
+                && Objects.equals(callerGuestToken, session.getGuestToken());
+
+        if (!ownsAsUser && !ownsAsGuest) {
+            throw new ResponseStatusException(HttpStatus.NOT_FOUND, "Session not found");
+        }
         return messageRepository.findBySessionIdOrderByCreatedAtAsc(sessionId);
     }
 
