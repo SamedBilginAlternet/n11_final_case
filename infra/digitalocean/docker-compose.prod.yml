@@ -1,0 +1,187 @@
+name: n11-final-case
+
+# Production compose: pulls pre-built images from GHCR (no `build:`).
+# Used by the GitHub Actions DigitalOcean deploy workflow.
+
+x-postgres-env: &postgres-env
+  POSTGRES_HOST: postgres
+  POSTGRES_PORT: 5432
+  POSTGRES_USER: ${POSTGRES_USER}
+  POSTGRES_PASSWORD: ${POSTGRES_PASSWORD}
+
+x-rabbitmq-env: &rabbitmq-env
+  RABBITMQ_HOST: rabbitmq
+  RABBITMQ_PORT: 5672
+  RABBITMQ_USER: ${RABBITMQ_USER}
+  RABBITMQ_PASSWORD: ${RABBITMQ_PASSWORD}
+
+x-jvm-defaults: &jvm-defaults
+  JAVA_TOOL_OPTIONS: "-XX:+UseG1GC -XX:MaxRAMPercentage=60"
+
+services:
+  postgres:
+    image: postgres:16-alpine
+    environment:
+      POSTGRES_USER: ${POSTGRES_USER}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD}
+      POSTGRES_DB: postgres
+    volumes:
+      - ./postgres-init:/docker-entrypoint-initdb.d:ro
+      - n11_pgdata:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U $${POSTGRES_USER}"]
+      interval: 5s
+      timeout: 3s
+      retries: 10
+    restart: unless-stopped
+
+  rabbitmq:
+    image: rabbitmq:3.13-management-alpine
+    environment:
+      RABBITMQ_DEFAULT_USER: ${RABBITMQ_USER}
+      RABBITMQ_DEFAULT_PASS: ${RABBITMQ_PASSWORD}
+    healthcheck:
+      test: ["CMD", "rabbitmq-diagnostics", "ping"]
+      interval: 10s
+      timeout: 5s
+      retries: 6
+    restart: unless-stopped
+
+  auth-service:
+    image: ghcr.io/${GHCR_OWNER}/auth-service:${IMAGE_TAG:-latest}
+    depends_on:
+      postgres: { condition: service_healthy }
+      rabbitmq: { condition: service_healthy }
+    environment:
+      <<: [*postgres-env, *rabbitmq-env, *jvm-defaults]
+      SERVER_PORT: 8081
+      POSTGRES_DB: authdb
+      JWT_SECRET: ${JWT_SECRET}
+    restart: unless-stopped
+
+  product-service:
+    image: ghcr.io/${GHCR_OWNER}/product-service:${IMAGE_TAG:-latest}
+    depends_on:
+      postgres: { condition: service_healthy }
+    environment:
+      <<: [*postgres-env, *jvm-defaults]
+      SERVER_PORT: 8082
+      POSTGRES_DB: productdb
+    restart: unless-stopped
+
+  cart-service:
+    image: ghcr.io/${GHCR_OWNER}/cart-service:${IMAGE_TAG:-latest}
+    depends_on:
+      postgres: { condition: service_healthy }
+      rabbitmq: { condition: service_healthy }
+      product-service: { condition: service_started }
+    environment:
+      <<: [*postgres-env, *rabbitmq-env, *jvm-defaults]
+      SERVER_PORT: 8083
+      POSTGRES_DB: cartdb
+      JWT_SECRET: ${JWT_SECRET}
+      PRODUCT_SERVICE_URL: http://product-service:8082
+    restart: unless-stopped
+
+  order-service:
+    image: ghcr.io/${GHCR_OWNER}/order-service:${IMAGE_TAG:-latest}
+    depends_on:
+      postgres: { condition: service_healthy }
+      rabbitmq: { condition: service_healthy }
+      cart-service: { condition: service_started }
+    environment:
+      <<: [*postgres-env, *rabbitmq-env, *jvm-defaults]
+      SERVER_PORT: 8084
+      POSTGRES_DB: orderdb
+      JWT_SECRET: ${JWT_SECRET}
+      CART_SERVICE_URL: http://cart-service:8083
+    restart: unless-stopped
+
+  payment-service:
+    image: ghcr.io/${GHCR_OWNER}/payment-service:${IMAGE_TAG:-latest}
+    depends_on:
+      postgres: { condition: service_healthy }
+      rabbitmq: { condition: service_healthy }
+    environment:
+      <<: [*postgres-env, *rabbitmq-env, *jvm-defaults]
+      SERVER_PORT: 8085
+      POSTGRES_DB: paymentdb
+      IYZICO_ENABLED: ${IYZICO_ENABLED:-false}
+      IYZICO_API_KEY: ${IYZICO_API_KEY:-sandbox}
+      IYZICO_SECRET_KEY: ${IYZICO_SECRET_KEY:-sandbox}
+      IYZICO_BASE_URL: ${IYZICO_BASE_URL:-https://sandbox-api.iyzipay.com}
+    restart: unless-stopped
+
+  notification-service:
+    image: ghcr.io/${GHCR_OWNER}/notification-service:${IMAGE_TAG:-latest}
+    depends_on:
+      rabbitmq: { condition: service_healthy }
+    environment:
+      <<: [*rabbitmq-env, *jvm-defaults]
+      SERVER_PORT: 8086
+      SLACK_ENABLED: ${SLACK_ENABLED:-true}
+      SLACK_WEBHOOK_URL: ${SLACK_WEBHOOK_URL}
+    restart: unless-stopped
+
+  chatbot-service:
+    image: ghcr.io/${GHCR_OWNER}/chatbot-service:${IMAGE_TAG:-latest}
+    depends_on:
+      postgres: { condition: service_healthy }
+      product-service: { condition: service_started }
+    environment:
+      <<: [*postgres-env, *jvm-defaults]
+      SERVER_PORT: 8087
+      POSTGRES_DB: chatbotdb
+      CHATBOT_PROVIDER: ${CHATBOT_PROVIDER:-GROQ}
+      GROQ_API_KEY: ${GROQ_API_KEY:-}
+      GROQ_MODEL: ${GROQ_MODEL:-llama-3.3-70b-versatile}
+      ANTHROPIC_API_KEY: ${ANTHROPIC_API_KEY:-}
+      PRODUCT_SERVICE_URL: http://product-service:8082
+    restart: unless-stopped
+
+  api-gateway:
+    image: ghcr.io/${GHCR_OWNER}/api-gateway:${IMAGE_TAG:-latest}
+    depends_on:
+      auth-service: { condition: service_started }
+      product-service: { condition: service_started }
+      cart-service: { condition: service_started }
+      order-service: { condition: service_started }
+      payment-service: { condition: service_started }
+      chatbot-service: { condition: service_started }
+    environment:
+      <<: *jvm-defaults
+      SERVER_PORT: 8080
+      AUTH_SERVICE_URL: http://auth-service:8081
+      PRODUCT_SERVICE_URL: http://product-service:8082
+      CART_SERVICE_URL: http://cart-service:8083
+      ORDER_SERVICE_URL: http://order-service:8084
+      PAYMENT_SERVICE_URL: http://payment-service:8085
+      CHATBOT_SERVICE_URL: http://chatbot-service:8087
+    restart: unless-stopped
+
+  frontend:
+    image: ghcr.io/${GHCR_OWNER}/frontend:${IMAGE_TAG:-latest}
+    depends_on:
+      api-gateway: { condition: service_started }
+    restart: unless-stopped
+
+  caddy:
+    image: caddy:2-alpine
+    depends_on:
+      api-gateway: { condition: service_started }
+      frontend: { condition: service_started }
+    ports:
+      - "80:80"
+      - "443:443"
+    volumes:
+      - ./Caddyfile:/etc/caddy/Caddyfile:ro
+      - n11_caddy_data:/data
+      - n11_caddy_config:/config
+    environment:
+      DOMAIN: ${DOMAIN:-:80}
+    restart: unless-stopped
+
+volumes:
+  n11_pgdata:
+  n11_caddy_data:
+  n11_caddy_config:
