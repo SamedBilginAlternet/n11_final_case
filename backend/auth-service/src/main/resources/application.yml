@@ -25,6 +25,16 @@ n11:
     secret: ${JWT_SECRET:dev-only-please-change-32-byte-secret-1234567890}
     access-ttl-minutes: ${JWT_ACCESS_TTL_MIN:60}
     issuer: n11-auth
+  social-login:
+    frontend-base-url: ${FRONTEND_BASE_URL:http://localhost:3000}
+    success-path: /auth/callback
+    failure-path: /login
+    google:
+      client-id: ${GOOGLE_CLIENT_ID:}
+      client-secret: ${GOOGLE_CLIENT_SECRET:}
+    github:
+      client-id: ${GITHUB_CLIENT_ID:}
+      client-secret: ${GITHUB_CLIENT_SECRET:}
 
 management:
   endpoints:
