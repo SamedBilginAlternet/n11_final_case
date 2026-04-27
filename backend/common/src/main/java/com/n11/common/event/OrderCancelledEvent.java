@@ -10,13 +10,16 @@ public record OrderCancelledEvent(
         Long userId,
         String userEmail,
         String reason,
+        String couponCode,
         String correlationId
 ) {
     public static OrderCancelledEvent of(Long orderId,
                                          Long userId,
                                          String userEmail,
                                          String reason,
+                                         String couponCode,
                                          String correlationId) {
-        return new OrderCancelledEvent(UUID.randomUUID(), Instant.now(), orderId, userId, userEmail, reason, correlationId);
+        return new OrderCancelledEvent(
+                UUID.randomUUID(), Instant.now(), orderId, userId, userEmail, reason, couponCode, correlationId);
     }
 }

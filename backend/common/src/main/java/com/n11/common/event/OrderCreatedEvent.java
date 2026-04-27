@@ -14,6 +14,7 @@ public record OrderCreatedEvent(
         BigDecimal totalAmount,
         String currency,
         List<OrderItemPayload> items,
+        String couponCode,
         String correlationId
 ) {
     public static OrderCreatedEvent of(Long orderId,
@@ -22,6 +23,7 @@ public record OrderCreatedEvent(
                                        BigDecimal totalAmount,
                                        String currency,
                                        List<OrderItemPayload> items,
+                                       String couponCode,
                                        String correlationId) {
         return new OrderCreatedEvent(
                 UUID.randomUUID(),
@@ -32,6 +34,7 @@ public record OrderCreatedEvent(
                 totalAmount,
                 currency,
                 items,
+                couponCode,
                 correlationId
         );
     }
