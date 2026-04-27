@@ -5,20 +5,33 @@ import com.n11.order.exception.CartLookupException;
 import com.n11.order.exception.EmptyCartException;
 import jakarta.servlet.http.HttpServletRequest;
 import lombok.extern.slf4j.Slf4j;
+import org.springframework.boot.web.client.ClientHttpRequestFactories;
+import org.springframework.boot.web.client.ClientHttpRequestFactorySettings;
 import org.springframework.http.HttpStatusCode;
 import org.springframework.stereotype.Component;
 import org.springframework.web.client.RestClient;
 import org.springframework.web.context.request.RequestContextHolder;
 import org.springframework.web.context.request.ServletRequestAttributes;
 
+import java.time.Duration;
+
 @Component
 @Slf4j
 public class CartClient {
 
+    private static final Duration CONNECT_TIMEOUT = Duration.ofSeconds(2);
+    private static final Duration READ_TIMEOUT = Duration.ofSeconds(5);
+
     private final RestClient client;
 
     public CartClient(OrderProperties props) {
-        this.client = RestClient.builder().baseUrl(props.services().cartBaseUrl()).build();
+        this.client = RestClient.builder()
+                .baseUrl(props.services().cartBaseUrl())
+                .requestFactory(ClientHttpRequestFactories.get(
+                        ClientHttpRequestFactorySettings.DEFAULTS
+                                .withConnectTimeout(CONNECT_TIMEOUT)
+                                .withReadTimeout(READ_TIMEOUT)))
+                .build();
     }
 
     public CartSnapshot fetchCurrent() {
