@@ -1,0 +1,10 @@
+# Test-only overrides on top of src/main/resources/application.yml.
+# Disables Redis cache so @SpringBootTest doesn't need a Redis container —
+# @Cacheable falls through to a NoOpCacheManager registered by Spring Boot.
+spring:
+  cache:
+    type: none
+  autoconfigure:
+    exclude:
+      - org.springframework.boot.autoconfigure.data.redis.RedisAutoConfiguration
+      - org.springframework.boot.autoconfigure.data.redis.RedisRepositoriesAutoConfiguration
