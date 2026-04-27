@@ -1,0 +1,51 @@
+INSERT INTO categories (name, slug, description) VALUES
+    ('Elektronik',  'elektronik',  'Telefon, tablet, dizüstü ve aksesuar'),
+    ('Moda',        'moda',        'Giyim ve aksesuar'),
+    ('Ev & Yaşam',  'ev-yasam',    'Mobilya ve ev tekstili'),
+    ('Spor',        'spor',        'Spor giyim ve ekipman'),
+    ('Kitap',       'kitap',       'Kitap, dergi, müzik');
+
+INSERT INTO products (name, slug, description, price, currency, stock, image_url, category_id) VALUES
+    ('iPhone 15 Pro 256 GB', 'iphone-15-pro-256gb',
+        'Apple iPhone 15 Pro 256GB titanyum kasa.', 64999.00, 'TRY', 25,
+        'https://picsum.photos/seed/iphone15/600/600', 1),
+    ('Samsung Galaxy S24', 'samsung-galaxy-s24',
+        'Samsung Galaxy S24 5G 256GB akıllı telefon.', 38990.00, 'TRY', 30,
+        'https://picsum.photos/seed/galaxys24/600/600', 1),
+    ('MacBook Air M3 13"', 'macbook-air-m3-13',
+        'Apple M3 işlemcili MacBook Air 13 inç 8GB/256GB.', 49990.00, 'TRY', 12,
+        'https://picsum.photos/seed/macbookair/600/600', 1),
+    ('Sony WH-1000XM5', 'sony-wh-1000xm5',
+        'Aktif gürültü engelleme bluetooth kulaklık.', 12990.00, 'TRY', 40,
+        'https://picsum.photos/seed/sonyxm5/600/600', 1),
+
+    ('Beyaz Pamuklu Tişört', 'beyaz-pamuklu-tisort',
+        'Unisex %100 pamuk tişört, regular kesim.', 249.90, 'TRY', 200,
+        'https://picsum.photos/seed/tee/600/600', 2),
+    ('Slim Fit Kot Pantolon', 'slim-fit-kot-pantolon',
+        'Erkek slim fit denim pantolon.', 1299.00, 'TRY', 80,
+        'https://picsum.photos/seed/jeans/600/600', 2),
+    ('Deri Cüzdan', 'deri-cuzdan',
+        'Hakiki deri kart bölmeli erkek cüzdan.', 599.90, 'TRY', 150,
+        'https://picsum.photos/seed/wallet/600/600', 2),
+
+    ('3 Kişilik Kanepe', '3-kisilik-kanepe',
+        'Kumaş döşemeli üç kişilik kanepe.', 18990.00, 'TRY', 8,
+        'https://picsum.photos/seed/sofa/600/600', 3),
+    ('Pamuk Çift Kişilik Nevresim', 'pamuk-nevresim',
+        'Çift kişilik %100 pamuk nevresim takımı.', 1299.00, 'TRY', 60,
+        'https://picsum.photos/seed/bedset/600/600', 3),
+
+    ('Koşu Ayakkabısı', 'kosu-ayakkabisi',
+        'Hafif yapı, nefes alabilir koşu ayakkabısı.', 2799.00, 'TRY', 75,
+        'https://picsum.photos/seed/runner/600/600', 4),
+    ('Yoga Matı', 'yoga-mati',
+        'Kaymaz yüzey, 6mm kalınlık yoga matı.', 449.00, 'TRY', 120,
+        'https://picsum.photos/seed/yoga/600/600', 4),
+
+    ('Sefiller', 'sefiller',
+        'Victor Hugo, Sefiller (Türkçe baskı).', 219.00, 'TRY', 50,
+        'https://picsum.photos/seed/lesmis/600/600', 5),
+    ('Atomic Habits', 'atomic-habits',
+        'James Clear, Atomic Habits (TR).', 189.00, 'TRY', 100,
+        'https://picsum.photos/seed/atomic/600/600', 5);
