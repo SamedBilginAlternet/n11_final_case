@@ -4,6 +4,13 @@ server:
 spring:
   application:
     name: product-service
+  data:
+    web:
+      pageable:
+        # Hard cap so '?size=99999' can't sweep the whole table into JVM heap.
+        # 100 is generous for a UI grid; UI default stays 20 via @PageableDefault.
+        max-page-size: 100
+        default-page-size: 20
   datasource:
     url: jdbc:postgresql://${POSTGRES_HOST:localhost}:${POSTGRES_PORT:5432}/${POSTGRES_DB:productdb}?stringtype=unspecified
     username: ${POSTGRES_USER:n11}
