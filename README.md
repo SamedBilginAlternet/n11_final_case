@@ -15,6 +15,7 @@ deploy boru hattı (her deploy'da Slack bildirimi).
 | **AI Asistan** | Pluggable provider — **Groq** (free, OpenAI-compatible, default) / **Anthropic Claude** / **Mock**; ürün katalog grounding ile RAG |
 | **Frontend** | React 18, Vite 5, Tailwind 3 (n11 magenta tema), react-router 6, axios, react-hot-toast; floating sticky chatbot |
 | **DevOps** | Docker Compose, Jib, GitHub Actions, **DigitalOcean droplet** (SSH deploy), **GHCR** (free image registry), Caddy reverse proxy + auto-TLS, Slack webhook (yalnızca CI/CD deploy bildirimi) |
+| **Observability** | Correlation ID propagation (HTTP + AMQP), Micrometer + Prometheus metrics, **OpenTelemetry → Jaeger** distributed tracing (UI :16686) |
 | **Test** | JUnit 5 + Mockito + Testcontainers (PostgreSQL) |
 
 ## İçindekiler
@@ -54,9 +55,9 @@ Detaylı diyagram: [`docs/architecture.md`](docs/architecture.md).
 |---|---|---|---|
 | **api-gateway** | 8080 | — | Public giriş, JWT relay, aggregated Swagger UI |
 | **auth-service** | 8081 | `authdb` | `register`, `login`, `refresh`, `logout`, `users/me`, access JWT + rotating opaque refresh token |
-| **product-service** | 8082 | `productdb` | Pagination + search + categories + `/autocomplete` (header search bar) + ratings |
-| **cart-service** | 8083 | `cartdb` | Sepet CRUD, `OrderConfirmed` consumer (sepeti temizler) |
-| **order-service** | 8084 | `orderdb` | Checkout, state machine, saga publisher + payment-event consumer |
+| **product-service** | 8082 | `productdb` | Pagination + search + categories + `/autocomplete` + ratings + per-user reviews |
+| **cart-service** | 8083 | `cartdb` | Sepet CRUD + wishlist (favoriler), `OrderConfirmed` consumer (sepeti temizler) |
+| **order-service** | 8084 | `orderdb` | Checkout (snapshot shipping address) + lifecycle state machine (CONFIRMED → PROCESSING → SHIPPED → DELIVERED) + saga publisher |
 | **payment-service** | 8085 | `paymentdb` | `OrderCreated` consumer, Iyzico, `Payment*` publisher |
 | **chatbot-service** | 8087 | `chatbotdb` | `POST /api/chat` — Groq / Claude provider, oturum geçmişi, ürün katalog grounding |
 
@@ -86,6 +87,7 @@ docker compose up --build
 | Frontend | http://localhost:3000 |
 | API Gateway | http://localhost:8080 |
 | Aggregated Swagger UI | http://localhost:8080/swagger-ui.html |
+| Jaeger Tracing UI | http://localhost:16686 |
 | RabbitMQ Management | http://localhost:15672 (`guest` / `guest`) |
 | PostgreSQL | localhost:5432 (`n11` / `n11pw`) |
 | Redis (cache) | localhost:6379 — `redis-cli KEYS 'product:*'` / `'cart:*'` |

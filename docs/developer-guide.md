@@ -523,8 +523,23 @@ log'unda **aynı id** ile aranır.
 2026-04-27 17:23:02 INFO [c0ffee...] cart-service - OrderConfirmed received userId=7
 ```
 
-Distributed tracing (OpenTelemetry, Jaeger) eklemenin **maliyetinin yarısı bu** — bu kadar
-sade tutuldu.
+Distributed tracing (OpenTelemetry → Jaeger) bu yapının üzerine eklendi — `common`
+modülü `micrometer-tracing-bridge-otel` + `opentelemetry-exporter-otlp` taşıyor; her
+servis OTLP-HTTP üzerinden span'leri `jaeger:4318`'e gönderiyor.
+
+```yaml
+management:
+  tracing:
+    sampling:
+      probability: ${TRACE_SAMPLING:1.0}
+  otlp:
+    tracing:
+      endpoint: ${OTEL_EXPORTER_OTLP_ENDPOINT:http://localhost:4318}/v1/traces
+```
+
+Compose'a `jaeger-all-in-one` eklendi, OTLP receiver native (4318), UI 16686'da. Bir
+checkout artık Jaeger'da 4 span'lik bir waterfall (gateway → order → cart → payment).
+Sampling demo'da %100, prod compose'da `TRACE_SAMPLING=0.2` ile %20'ye düşürülmüş.
 
 ### 4.2 Error handling
 
@@ -640,7 +655,6 @@ düşük.
 | **gRPC service-to-service** | REST + JSON Java ekosisteminin defaults'ı, debug edilebilir |
 | **Kafka** | Exactly-once veya yüksek throughput'a ihtiyaç yok — RabbitMQ at-least-once + idempotent consumer yeterli |
 | **Inventory service** | Stock product entity'sinde — ayrı reservation servisi scope dışı |
-| **Distributed tracing (OpenTelemetry, Jaeger)** | Correlation ID logback ile yeterli. Tracing eklenmek isterse `Micrometer Tracing` autoconfig var, env override |
 | **Circuit breaker (Resilience4j)** | Tek-instance demo, downstream'in patlaması test ortamında simüle edilebiliyor; gerçek prod risk değil |
 | **API versioning** (`/v1/...`) | Hiç external consumer yok, breaking change kendi frontend'imizi etkiler — ezbere version yapmak abartı |
 | **Mass-assignment koruması** | Register/login DTO'ları zaten role/userId field'ı yok; bilinçli minimal contract |
