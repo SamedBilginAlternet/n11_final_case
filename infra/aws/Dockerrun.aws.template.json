@@ -112,16 +112,36 @@
       "portMappings": [{ "hostPort": 8086, "containerPort": 8086 }]
     },
     {
+      "name": "chatbot-service",
+      "image": "${ECR_REGISTRY}/n11/chatbot-service:${IMAGE_TAG}",
+      "essential": true,
+      "memory": 384,
+      "links": ["product-service"],
+      "environment": [
+        { "name": "POSTGRES_HOST", "value": "${RDS_HOSTNAME}" },
+        { "name": "POSTGRES_PORT", "value": "${RDS_PORT}" },
+        { "name": "POSTGRES_DB", "value": "chatbotdb" },
+        { "name": "POSTGRES_USER", "value": "${RDS_USERNAME}" },
+        { "name": "POSTGRES_PASSWORD", "value": "${RDS_PASSWORD}" },
+        { "name": "CHATBOT_PROVIDER", "value": "CLAUDE" },
+        { "name": "ANTHROPIC_API_KEY", "value": "${ANTHROPIC_API_KEY}" },
+        { "name": "ANTHROPIC_MODEL", "value": "claude-sonnet-4-6" },
+        { "name": "PRODUCT_SERVICE_URL", "value": "http://product-service:8082" }
+      ],
+      "portMappings": [{ "hostPort": 8087, "containerPort": 8087 }]
+    },
+    {
       "name": "api-gateway",
       "image": "${ECR_REGISTRY}/n11/api-gateway:${IMAGE_TAG}",
       "essential": true,
       "memory": 512,
-      "links": ["auth-service", "product-service", "cart-service", "order-service", "payment-service"],
+      "links": ["auth-service", "product-service", "cart-service", "order-service", "payment-service", "chatbot-service"],
       "environment": [
         { "name": "AUTH_SERVICE_URL", "value": "http://auth-service:8081" },
         { "name": "PRODUCT_SERVICE_URL", "value": "http://product-service:8082" },
         { "name": "CART_SERVICE_URL", "value": "http://cart-service:8083" },
         { "name": "ORDER_SERVICE_URL", "value": "http://order-service:8084" },
+        { "name": "CHATBOT_SERVICE_URL", "value": "http://chatbot-service:8087" },
         { "name": "PAYMENT_SERVICE_URL", "value": "http://payment-service:8085" }
       ],
       "portMappings": [{ "hostPort": 8080, "containerPort": 8080 }]
