@@ -83,11 +83,24 @@ jobs:
     name: Deploy to DigitalOcean droplet
     needs: build-images
     runs-on: ubuntu-latest
-    if: ${{ secrets.DO_DROPLET_HOST != '' }}
     steps:
+      - name: Check droplet credentials
+        id: check
+        env:
+          HOST: ${{ secrets.DO_DROPLET_HOST }}
+        run: |
+          if [ -z "$HOST" ]; then
+            echo "DO_DROPLET_HOST not configured — skipping deploy."
+            echo "configured=false" >> "$GITHUB_OUTPUT"
+          else
+            echo "configured=true" >> "$GITHUB_OUTPUT"
+          fi
+
       - uses: actions/checkout@v4
+        if: steps.check.outputs.configured == 'true'
 
       - name: Sync infra files to droplet
+        if: steps.check.outputs.configured == 'true'
         uses: appleboy/scp-action@v0.1.7
         with:
           host: ${{ secrets.DO_DROPLET_HOST }}
@@ -98,6 +111,7 @@ jobs:
           strip_components: 2
 
       - name: Pull & restart on droplet
+        if: steps.check.outputs.configured == 'true'
         uses: appleboy/ssh-action@v1.0.3
         env:
           IMAGE_TAG: ${{ needs.build-images.outputs.image_tag }}
