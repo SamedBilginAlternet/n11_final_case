@@ -6,7 +6,7 @@ spring:
   application:
     name: auth-service
   datasource:
-    url: jdbc:postgresql://${POSTGRES_HOST:localhost}:${POSTGRES_PORT:5432}/${POSTGRES_DB:authdb}
+    url: jdbc:postgresql://${POSTGRES_HOST:localhost}:${POSTGRES_PORT:5432}/${POSTGRES_DB:authdb}?stringtype=unspecified
     username: ${POSTGRES_USER:n11}
     password: ${POSTGRES_PASSWORD:n11pw}
   jpa:

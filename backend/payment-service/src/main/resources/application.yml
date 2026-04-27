@@ -5,7 +5,7 @@ spring:
   application:
     name: payment-service
   datasource:
-    url: jdbc:postgresql://${POSTGRES_HOST:localhost}:${POSTGRES_PORT:5432}/${POSTGRES_DB:paymentdb}
+    url: jdbc:postgresql://${POSTGRES_HOST:localhost}:${POSTGRES_PORT:5432}/${POSTGRES_DB:paymentdb}?stringtype=unspecified
     username: ${POSTGRES_USER:n11}
     password: ${POSTGRES_PASSWORD:n11pw}
   jpa:

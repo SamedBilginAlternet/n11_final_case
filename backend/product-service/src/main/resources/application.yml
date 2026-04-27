@@ -5,7 +5,7 @@ spring:
   application:
     name: product-service
   datasource:
-    url: jdbc:postgresql://${POSTGRES_HOST:localhost}:${POSTGRES_PORT:5432}/${POSTGRES_DB:productdb}
+    url: jdbc:postgresql://${POSTGRES_HOST:localhost}:${POSTGRES_PORT:5432}/${POSTGRES_DB:productdb}?stringtype=unspecified
     username: ${POSTGRES_USER:n11}
     password: ${POSTGRES_PASSWORD:n11pw}
   jpa:
