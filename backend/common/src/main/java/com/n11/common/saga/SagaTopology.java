@@ -4,6 +4,13 @@ public final class SagaTopology {
 
     public static final String EXCHANGE = "saga.exchange";
 
+    /**
+     * Dead-letter exchange — messages that consumers reject without requeue
+     * (or that expire) land here, routed by the original key, into a per-queue
+     * DLQ for manual inspection / replay.
+     */
+    public static final String DLX_EXCHANGE = "saga.exchange.dlx";
+
     public static final class RoutingKey {
         public static final String ORDER_CREATED = "order.created";
         public static final String PAYMENT_SUCCEEDED = "payment.succeeded";
@@ -24,6 +31,12 @@ public final class SagaTopology {
         //   ORDER_CANCELLED → compensation: release the redemption
         public static final String CART_ORDER_CREATED_COUPON = "cart.order-created.coupon.q";
         public static final String CART_ORDER_CANCELLED_COUPON = "cart.order-cancelled.coupon.q";
+
+        // Dead-letter parking lots — same name + .dlq, declared alongside their
+        // primary queue so failed messages stay durable and inspectable.
+        public static final String CART_ORDER_CONFIRMED_DLQ = CART_ORDER_CONFIRMED + ".dlq";
+        public static final String CART_ORDER_CREATED_COUPON_DLQ = CART_ORDER_CREATED_COUPON + ".dlq";
+        public static final String CART_ORDER_CANCELLED_COUPON_DLQ = CART_ORDER_CANCELLED_COUPON + ".dlq";
 
         private Queue() {}
     }
