@@ -1,0 +1,16 @@
+@gateway = http://localhost:8080
+
+### List products page 0
+GET {{gateway}}/api/products?page=0&size=12
+
+### Search by query
+GET {{gateway}}/api/products?q=iphone
+
+### Filter by category slug
+GET {{gateway}}/api/products?category=elektronik&size=20
+
+### Detail by slug
+GET {{gateway}}/api/products/slug/iphone-15-pro-256gb
+
+### Categories
+GET {{gateway}}/api/categories
