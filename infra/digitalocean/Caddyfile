@@ -1,0 +1,21 @@
+# DigitalOcean droplet reverse proxy.
+# Set DOMAIN=example.com in /opt/n11/.env to enable automatic Let's Encrypt TLS.
+# Leave DOMAIN as ":80" (or unset) for plain HTTP on the droplet IP.
+
+{$DOMAIN:":80"} {
+    encode zstd gzip
+
+    @api path /api/* /v3/api-docs/* /swagger-ui/* /swagger-ui.html /aggregated-docs/*
+    handle @api {
+        reverse_proxy api-gateway:8080
+    }
+
+    handle {
+        reverse_proxy frontend:80
+    }
+
+    log {
+        output stdout
+        format console
+    }
+}
