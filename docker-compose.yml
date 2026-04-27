@@ -27,7 +27,7 @@ services:
       - ./infra/postgres-init:/docker-entrypoint-initdb.d:ro
       - n11_pgdata:/var/lib/postgresql/data
     healthcheck:
-      test: ["CMD-SHELL", "pg_isready -U ${POSTGRES_USER:-n11}"]
+      test: ["CMD-SHELL", "pg_isready -U ${POSTGRES_USER:-n11} -d postgres"]
       interval: 5s
       timeout: 3s
       retries: 10
