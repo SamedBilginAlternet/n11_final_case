@@ -12,6 +12,7 @@ import ProductListPage from './pages/ProductListPage.jsx';
 import ProductDetailPage from './pages/ProductDetailPage.jsx';
 import CartPage from './pages/CartPage.jsx';
 import OrdersPage from './pages/OrdersPage.jsx';
+import AddressBookPage from './pages/AddressBookPage.jsx';
 
 export default function App() {
   return (
@@ -38,6 +39,14 @@ export default function App() {
             element={
               <ProtectedRoute>
                 <OrdersPage />
+              </ProtectedRoute>
+            }
+          />
+          <Route
+            path="/account/addresses"
+            element={
+              <ProtectedRoute>
+                <AddressBookPage />
               </ProtectedRoute>
             }
           />
