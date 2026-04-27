@@ -6,6 +6,7 @@ import ChatBubbleButton from './components/chatbot/ChatBubbleButton.jsx';
 import ChatPanel from './components/chatbot/ChatPanel.jsx';
 import HomePage from './pages/HomePage.jsx';
 import LoginPage from './pages/LoginPage.jsx';
+import OAuthCallbackPage from './pages/OAuthCallbackPage.jsx';
 import RegisterPage from './pages/RegisterPage.jsx';
 import ProductListPage from './pages/ProductListPage.jsx';
 import ProductDetailPage from './pages/ProductDetailPage.jsx';
@@ -22,6 +23,7 @@ export default function App() {
           <Route path="/catalog" element={<ProductListPage />} />
           <Route path="/products/:slug" element={<ProductDetailPage />} />
           <Route path="/login" element={<LoginPage />} />
+          <Route path="/auth/callback" element={<OAuthCallbackPage />} />
           <Route path="/register" element={<RegisterPage />} />
           <Route
             path="/cart"

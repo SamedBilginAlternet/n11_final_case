@@ -63,8 +63,30 @@ export function AuthProvider({ children }) {
     toast('Çıkış yapıldı');
   }, []);
 
+  const hydrateFromToken = useCallback(async (newToken) => {
+    setLoading(true);
+    setToken(newToken);
+    try {
+      const { data } = await api.get('/api/users/me', {
+        headers: { Authorization: `Bearer ${newToken}` },
+      });
+      setUser(data);
+      toast.success(`Hoş geldin ${data.fullName}`);
+      return data;
+    } catch (err) {
+      setToken(null);
+      const message = err.response?.data?.message || 'Oturum doğrulanamadı';
+      toast.error(message);
+      throw err;
+    } finally {
+      setLoading(false);
+    }
+  }, []);
+
   return (
-    <AuthContext.Provider value={{ user, token, loading, login, register, logout, isAuthed: !!token }}>
+    <AuthContext.Provider
+      value={{ user, token, loading, login, register, logout, hydrateFromToken, isAuthed: !!token }}
+    >
       {children}
     </AuthContext.Provider>
   );
