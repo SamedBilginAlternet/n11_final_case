@@ -18,19 +18,24 @@ public class RabbitConfig {
     }
 
     @Bean
-    public Queue orderPaymentResultQueue() {
-        return QueueBuilder.durable(SagaTopology.Queue.ORDER_PAYMENT_RESULT).build();
+    public Queue orderPaymentSucceededQueue() {
+        return QueueBuilder.durable(SagaTopology.Queue.ORDER_PAYMENT_SUCCEEDED).build();
     }
 
     @Bean
-    public Binding bindPaymentSucceeded(Queue orderPaymentResultQueue, TopicExchange sagaExchange) {
-        return BindingBuilder.bind(orderPaymentResultQueue).to(sagaExchange)
+    public Queue orderPaymentFailedQueue() {
+        return QueueBuilder.durable(SagaTopology.Queue.ORDER_PAYMENT_FAILED).build();
+    }
+
+    @Bean
+    public Binding bindPaymentSucceeded(Queue orderPaymentSucceededQueue, TopicExchange sagaExchange) {
+        return BindingBuilder.bind(orderPaymentSucceededQueue).to(sagaExchange)
                 .with(SagaTopology.RoutingKey.PAYMENT_SUCCEEDED);
     }
 
     @Bean
-    public Binding bindPaymentFailed(Queue orderPaymentResultQueue, TopicExchange sagaExchange) {
-        return BindingBuilder.bind(orderPaymentResultQueue).to(sagaExchange)
+    public Binding bindPaymentFailed(Queue orderPaymentFailedQueue, TopicExchange sagaExchange) {
+        return BindingBuilder.bind(orderPaymentFailedQueue).to(sagaExchange)
                 .with(SagaTopology.RoutingKey.PAYMENT_FAILED);
     }
 

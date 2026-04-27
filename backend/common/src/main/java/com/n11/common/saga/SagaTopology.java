@@ -17,7 +17,8 @@ public final class SagaTopology {
 
     public static final class Queue {
         public static final String PAYMENT_ORDER_CREATED = "payment.order-created.q";
-        public static final String ORDER_PAYMENT_RESULT = "order.payment-result.q";
+        public static final String ORDER_PAYMENT_SUCCEEDED = "order.payment-succeeded.q";
+        public static final String ORDER_PAYMENT_FAILED = "order.payment-failed.q";
         public static final String CART_ORDER_CONFIRMED = "cart.order-confirmed.q";
         public static final String NOTIFICATION_FANOUT = "notification.fanout.q";
 
