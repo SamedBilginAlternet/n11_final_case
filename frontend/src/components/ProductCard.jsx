@@ -1,27 +1,53 @@
+import { Link } from 'react-router-dom';
+import HeartButton from './product/HeartButton.jsx';
+import RatingStars from './product/RatingStars.jsx';
 import { formatCurrency } from '../utils/format.js';
 
-export default function ProductCard({ product }) {
+export default function ProductCard({ product, badge = 'KUPONLU ÜRÜN', campaign = '4 AL 3 ÖDE', oldPrice }) {
+  const previousPrice = oldPrice ?? Number(product.price) * 1.2;
+
   return (
-    <article className="card overflow-hidden transition-shadow hover:shadow-md">
-      <div className="aspect-square overflow-hidden bg-slate-100">
-        {product.imageUrl ? (
-          <img src={product.imageUrl} alt={product.name} loading="lazy" className="h-full w-full object-cover" />
-        ) : (
-          <div className="flex h-full items-center justify-center text-slate-400">no image</div>
-        )}
-      </div>
-      <div className="p-3">
-        <p className="text-xs uppercase tracking-wide text-slate-400">{product.categoryName}</p>
-        <h3 className="mt-1 line-clamp-2 text-sm font-medium text-slate-800">{product.name}</h3>
-        <div className="mt-2 flex items-baseline justify-between">
-          <span className="text-lg font-semibold text-n11-orange">{formatCurrency(product.price, product.currency)}</span>
-          {product.stock > 0 ? (
-            <span className="text-xs text-emerald-600">Stokta</span>
+    <article className="group relative flex h-full flex-col overflow-hidden rounded-md border border-gray-200 bg-white transition-shadow hover:shadow-soft">
+      {badge && (
+        <span className="badge-black absolute left-2 top-2 z-10 px-2 py-1 text-[10px]">{badge}</span>
+      )}
+      <HeartButton />
+
+      <Link to={`/products/${product.slug}`} className="block">
+        <div className="aspect-square overflow-hidden bg-gray-50">
+          {product.imageUrl ? (
+            <img src={product.imageUrl} alt={product.name} loading="lazy" className="h-full w-full object-cover transition-transform group-hover:scale-105" />
           ) : (
-            <span className="text-xs text-red-500">Tükendi</span>
+            <div className="grid h-full place-items-center text-gray-300">no image</div>
           )}
         </div>
-      </div>
+
+        <div className="flex w-full items-center justify-center bg-n11-black py-1.5 text-[11px] font-bold uppercase tracking-wider text-white">
+          ÜCRETSİZ KARGO
+        </div>
+
+        <div className="space-y-2 p-3">
+          <h3 className="line-clamp-2 min-h-[2.5rem] text-sm leading-snug text-gray-800">
+            {product.name}
+          </h3>
+
+          <RatingStars value={product.ratingAverage} count={product.ratingCount} />
+
+          {campaign && <span className="badge-pink">{campaign}</span>}
+
+          <div className="pt-1">
+            <p className="text-xs text-gray-400 line-through">
+              {formatCurrency(previousPrice, product.currency)}
+            </p>
+            <div className="flex items-baseline gap-2">
+              <span className="text-[10px] font-bold uppercase tracking-wider text-n11-pink">SEPETTE</span>
+              <span className="text-base font-extrabold text-n11-black">
+                {formatCurrency(product.price, product.currency)}
+              </span>
+            </div>
+          </div>
+        </div>
+      </Link>
     </article>
   );
 }
