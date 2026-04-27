@@ -1,0 +1,138 @@
+{
+  "AWSEBDockerrunVersion": 2,
+  "containerDefinitions": [
+    {
+      "name": "rabbitmq",
+      "image": "rabbitmq:3.13-management-alpine",
+      "essential": true,
+      "memory": 384,
+      "portMappings": [
+        { "hostPort": 5672, "containerPort": 5672 },
+        { "hostPort": 15672, "containerPort": 15672 }
+      ]
+    },
+    {
+      "name": "auth-service",
+      "image": "${ECR_REGISTRY}/n11/auth-service:${IMAGE_TAG}",
+      "essential": true,
+      "memory": 512,
+      "links": ["rabbitmq"],
+      "environment": [
+        { "name": "POSTGRES_HOST", "value": "${RDS_HOSTNAME}" },
+        { "name": "POSTGRES_PORT", "value": "${RDS_PORT}" },
+        { "name": "POSTGRES_DB", "value": "authdb" },
+        { "name": "POSTGRES_USER", "value": "${RDS_USERNAME}" },
+        { "name": "POSTGRES_PASSWORD", "value": "${RDS_PASSWORD}" },
+        { "name": "RABBITMQ_HOST", "value": "rabbitmq" },
+        { "name": "JWT_SECRET", "value": "${JWT_SECRET}" }
+      ],
+      "portMappings": [{ "hostPort": 8081, "containerPort": 8081 }]
+    },
+    {
+      "name": "product-service",
+      "image": "${ECR_REGISTRY}/n11/product-service:${IMAGE_TAG}",
+      "essential": true,
+      "memory": 512,
+      "environment": [
+        { "name": "POSTGRES_HOST", "value": "${RDS_HOSTNAME}" },
+        { "name": "POSTGRES_PORT", "value": "${RDS_PORT}" },
+        { "name": "POSTGRES_DB", "value": "productdb" },
+        { "name": "POSTGRES_USER", "value": "${RDS_USERNAME}" },
+        { "name": "POSTGRES_PASSWORD", "value": "${RDS_PASSWORD}" }
+      ],
+      "portMappings": [{ "hostPort": 8082, "containerPort": 8082 }]
+    },
+    {
+      "name": "cart-service",
+      "image": "${ECR_REGISTRY}/n11/cart-service:${IMAGE_TAG}",
+      "essential": true,
+      "memory": 512,
+      "links": ["rabbitmq", "product-service"],
+      "environment": [
+        { "name": "POSTGRES_HOST", "value": "${RDS_HOSTNAME}" },
+        { "name": "POSTGRES_PORT", "value": "${RDS_PORT}" },
+        { "name": "POSTGRES_DB", "value": "cartdb" },
+        { "name": "POSTGRES_USER", "value": "${RDS_USERNAME}" },
+        { "name": "POSTGRES_PASSWORD", "value": "${RDS_PASSWORD}" },
+        { "name": "RABBITMQ_HOST", "value": "rabbitmq" },
+        { "name": "JWT_SECRET", "value": "${JWT_SECRET}" },
+        { "name": "PRODUCT_SERVICE_URL", "value": "http://product-service:8082" }
+      ],
+      "portMappings": [{ "hostPort": 8083, "containerPort": 8083 }]
+    },
+    {
+      "name": "order-service",
+      "image": "${ECR_REGISTRY}/n11/order-service:${IMAGE_TAG}",
+      "essential": true,
+      "memory": 512,
+      "links": ["rabbitmq", "cart-service"],
+      "environment": [
+        { "name": "POSTGRES_HOST", "value": "${RDS_HOSTNAME}" },
+        { "name": "POSTGRES_PORT", "value": "${RDS_PORT}" },
+        { "name": "POSTGRES_DB", "value": "orderdb" },
+        { "name": "POSTGRES_USER", "value": "${RDS_USERNAME}" },
+        { "name": "POSTGRES_PASSWORD", "value": "${RDS_PASSWORD}" },
+        { "name": "RABBITMQ_HOST", "value": "rabbitmq" },
+        { "name": "JWT_SECRET", "value": "${JWT_SECRET}" },
+        { "name": "CART_SERVICE_URL", "value": "http://cart-service:8083" }
+      ],
+      "portMappings": [{ "hostPort": 8084, "containerPort": 8084 }]
+    },
+    {
+      "name": "payment-service",
+      "image": "${ECR_REGISTRY}/n11/payment-service:${IMAGE_TAG}",
+      "essential": true,
+      "memory": 512,
+      "links": ["rabbitmq"],
+      "environment": [
+        { "name": "POSTGRES_HOST", "value": "${RDS_HOSTNAME}" },
+        { "name": "POSTGRES_PORT", "value": "${RDS_PORT}" },
+        { "name": "POSTGRES_DB", "value": "paymentdb" },
+        { "name": "POSTGRES_USER", "value": "${RDS_USERNAME}" },
+        { "name": "POSTGRES_PASSWORD", "value": "${RDS_PASSWORD}" },
+        { "name": "RABBITMQ_HOST", "value": "rabbitmq" },
+        { "name": "IYZICO_ENABLED", "value": "true" },
+        { "name": "IYZICO_API_KEY", "value": "${IYZICO_API_KEY}" },
+        { "name": "IYZICO_SECRET_KEY", "value": "${IYZICO_SECRET_KEY}" },
+        { "name": "IYZICO_BASE_URL", "value": "${IYZICO_BASE_URL}" }
+      ],
+      "portMappings": [{ "hostPort": 8085, "containerPort": 8085 }]
+    },
+    {
+      "name": "notification-service",
+      "image": "${ECR_REGISTRY}/n11/notification-service:${IMAGE_TAG}",
+      "essential": true,
+      "memory": 256,
+      "links": ["rabbitmq"],
+      "environment": [
+        { "name": "RABBITMQ_HOST", "value": "rabbitmq" },
+        { "name": "SLACK_ENABLED", "value": "true" },
+        { "name": "SLACK_WEBHOOK_URL", "value": "${SLACK_WEBHOOK_URL}" }
+      ],
+      "portMappings": [{ "hostPort": 8086, "containerPort": 8086 }]
+    },
+    {
+      "name": "api-gateway",
+      "image": "${ECR_REGISTRY}/n11/api-gateway:${IMAGE_TAG}",
+      "essential": true,
+      "memory": 512,
+      "links": ["auth-service", "product-service", "cart-service", "order-service", "payment-service"],
+      "environment": [
+        { "name": "AUTH_SERVICE_URL", "value": "http://auth-service:8081" },
+        { "name": "PRODUCT_SERVICE_URL", "value": "http://product-service:8082" },
+        { "name": "CART_SERVICE_URL", "value": "http://cart-service:8083" },
+        { "name": "ORDER_SERVICE_URL", "value": "http://order-service:8084" },
+        { "name": "PAYMENT_SERVICE_URL", "value": "http://payment-service:8085" }
+      ],
+      "portMappings": [{ "hostPort": 8080, "containerPort": 8080 }]
+    },
+    {
+      "name": "frontend",
+      "image": "${ECR_REGISTRY}/n11/frontend:${IMAGE_TAG}",
+      "essential": true,
+      "memory": 128,
+      "links": ["api-gateway"],
+      "portMappings": [{ "hostPort": 80, "containerPort": 80 }]
+    }
+  ]
+}

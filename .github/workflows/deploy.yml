@@ -1,0 +1,129 @@
+name: deploy
+
+on:
+  push:
+    tags:
+      - 'v*'
+  workflow_dispatch: {}
+
+env:
+  AWS_REGION: ${{ vars.AWS_REGION || 'eu-west-1' }}
+  EB_APP: ${{ vars.EB_APPLICATION || 'n11-final-case' }}
+  EB_ENV: ${{ vars.EB_ENVIRONMENT || 'n11-final-case-prod' }}
+  ECR_REGISTRY: ${{ secrets.AWS_ACCOUNT_ID }}.dkr.ecr.${{ vars.AWS_REGION || 'eu-west-1' }}.amazonaws.com
+
+jobs:
+  build-and-push:
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+      id-token: write
+    outputs:
+      image_tag: ${{ steps.tag.outputs.tag }}
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: 21
+          cache: maven
+
+      - name: Compute image tag
+        id: tag
+        run: echo "tag=${GITHUB_REF_NAME#v}" >> "$GITHUB_OUTPUT"
+
+      - name: Configure AWS credentials
+        uses: aws-actions/configure-aws-credentials@v4
+        with:
+          role-to-assume: ${{ secrets.AWS_DEPLOY_ROLE_ARN }}
+          aws-region: ${{ env.AWS_REGION }}
+
+      - name: Login to ECR
+        uses: aws-actions/amazon-ecr-login@v2
+
+      - name: Build & push images via Jib
+        working-directory: backend
+        run: |
+          for svc in api-gateway auth-service product-service cart-service order-service payment-service notification-service; do
+            mvn -B -DskipTests -pl "$svc" -am package
+            mvn -B -DskipTests -pl "$svc" \
+              -Djib.to.image=${{ env.ECR_REGISTRY }}/n11/${svc}:${{ steps.tag.outputs.tag }} \
+              -Djib.to.tags=latest \
+              jib:build
+          done
+
+      - name: Build & push frontend image
+        working-directory: frontend
+        run: |
+          docker build --build-arg VITE_API_BASE_URL=/api \
+            -t ${{ env.ECR_REGISTRY }}/n11/frontend:${{ steps.tag.outputs.tag }} \
+            -t ${{ env.ECR_REGISTRY }}/n11/frontend:latest .
+          docker push ${{ env.ECR_REGISTRY }}/n11/frontend:${{ steps.tag.outputs.tag }}
+          docker push ${{ env.ECR_REGISTRY }}/n11/frontend:latest
+
+  deploy-eb:
+    needs: build-and-push
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+      id-token: write
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Configure AWS credentials
+        uses: aws-actions/configure-aws-credentials@v4
+        with:
+          role-to-assume: ${{ secrets.AWS_DEPLOY_ROLE_ARN }}
+          aws-region: ${{ env.AWS_REGION }}
+
+      - name: Render Dockerrun.aws.json
+        env:
+          IMAGE_TAG: ${{ needs.build-and-push.outputs.image_tag }}
+        run: |
+          mkdir -p eb
+          envsubst < infra/aws/Dockerrun.aws.template.json > eb/Dockerrun.aws.json
+          cd eb && zip -r ../bundle.zip Dockerrun.aws.json
+
+      - name: Deploy to Elastic Beanstalk
+        env:
+          IMAGE_TAG: ${{ needs.build-and-push.outputs.image_tag }}
+        run: |
+          VERSION="v-${IMAGE_TAG}-${GITHUB_RUN_NUMBER}"
+          BUCKET=${{ secrets.EB_S3_BUCKET }}
+
+          aws s3 cp bundle.zip "s3://${BUCKET}/${EB_APP}/${VERSION}.zip"
+
+          aws elasticbeanstalk create-application-version \
+            --application-name "$EB_APP" \
+            --version-label "$VERSION" \
+            --source-bundle "S3Bucket=${BUCKET},S3Key=${EB_APP}/${VERSION}.zip"
+
+          aws elasticbeanstalk update-environment \
+            --application-name "$EB_APP" \
+            --environment-name "$EB_ENV" \
+            --version-label "$VERSION"
+
+  notify:
+    needs: [build-and-push, deploy-eb]
+    if: always()
+    runs-on: ubuntu-latest
+    steps:
+      - name: Slack notification
+        env:
+          STATUS: ${{ needs.deploy-eb.result }}
+          IMAGE_TAG: ${{ needs.build-and-push.outputs.image_tag }}
+          WEBHOOK: ${{ secrets.SLACK_WEBHOOK_URL }}
+        run: |
+          if [ -z "$WEBHOOK" ]; then
+            echo "SLACK_WEBHOOK_URL not configured — skipping"
+            exit 0
+          fi
+          if [ "$STATUS" = "success" ]; then
+            EMOJI=":rocket:"; TEXT="*${EB_APP}* ${IMAGE_TAG} deployed to ${EB_ENV}"
+          else
+            EMOJI=":x:"; TEXT="*${EB_APP}* deploy ${IMAGE_TAG} *FAILED* on ${EB_ENV}"
+          fi
+          curl -sS -X POST -H 'Content-type: application/json' \
+            --data "{\"text\":\"$EMOJI $TEXT — run #${GITHUB_RUN_NUMBER} (${GITHUB_SHA::7})\"}" \
+            "$WEBHOOK"
