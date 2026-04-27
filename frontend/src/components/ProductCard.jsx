@@ -12,7 +12,7 @@ export default function ProductCard({ product, badge = 'KUPONLU ÜRÜN', campaig
       {badge && (
         <span className="badge-black absolute left-2 top-2 z-10 px-2 py-1 text-[10px]">{badge}</span>
       )}
-      <HeartButton />
+      <HeartButton productId={product.id} />
 
       <Link to={`/products/${product.slug}`} className="block">
         <div className="aspect-square overflow-hidden bg-gray-50">

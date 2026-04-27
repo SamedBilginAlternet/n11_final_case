@@ -13,6 +13,7 @@ import ProductDetailPage from './pages/ProductDetailPage.jsx';
 import CartPage from './pages/CartPage.jsx';
 import OrdersPage from './pages/OrdersPage.jsx';
 import AddressBookPage from './pages/AddressBookPage.jsx';
+import WishlistPage from './pages/WishlistPage.jsx';
 
 export default function App() {
   return (
@@ -50,6 +51,7 @@ export default function App() {
               </ProtectedRoute>
             }
           />
+          <Route path="/favorites" element={<WishlistPage />} />
           <Route path="*" element={<Navigate to="/" replace />} />
         </Routes>
       </main>
