@@ -2,14 +2,16 @@ package com.n11.cart.service;
 
 import com.n11.cart.api.dto.AddItemRequest;
 import com.n11.cart.api.dto.CartDto;
+import com.n11.cart.api.mapper.CartMapper;
 import com.n11.cart.client.ProductClient;
 import com.n11.cart.client.ProductSnapshot;
 import com.n11.cart.domain.Cart;
 import com.n11.cart.exception.InsufficientStockException;
 import com.n11.cart.repository.CartRepository;
+import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
-import org.mockito.InjectMocks;
+import org.mapstruct.factory.Mappers;
 import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
 
@@ -27,7 +29,13 @@ class CartServiceTest {
     @Mock CartRepository repository;
     @Mock ProductClient productClient;
 
-    @InjectMocks CartService service;
+    private final CartMapper mapper = Mappers.getMapper(CartMapper.class);
+    private CartService service;
+
+    @BeforeEach
+    void wire() {
+        service = new CartService(repository, productClient, mapper);
+    }
 
     @Test
     void addsNewItemAndComputesTotals() {
