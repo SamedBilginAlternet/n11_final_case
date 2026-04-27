@@ -32,6 +32,7 @@ spring:
       cache-null-values: false
       use-key-prefix: true
       key-prefix: "cart:"
+      enable-statistics: true
 
 n11:
   jwt:

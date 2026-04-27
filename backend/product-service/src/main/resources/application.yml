@@ -11,6 +11,10 @@ spring:
         # 100 is generous for a UI grid; UI default stays 20 via @PageableDefault.
         max-page-size: 100
         default-page-size: 20
+    redis:
+      host: ${REDIS_HOST:localhost}
+      port: ${REDIS_PORT:6379}
+      timeout: 1s
   datasource:
     url: jdbc:postgresql://${POSTGRES_HOST:localhost}:${POSTGRES_PORT:5432}/${POSTGRES_DB:productdb}?stringtype=unspecified
     username: ${POSTGRES_USER:n11}
@@ -25,11 +29,6 @@ spring:
   flyway:
     enabled: true
     baseline-on-migrate: true
-  data:
-    redis:
-      host: ${REDIS_HOST:localhost}
-      port: ${REDIS_PORT:6379}
-      timeout: 1s
   cache:
     type: redis
     redis:
@@ -37,6 +36,8 @@ spring:
       cache-null-values: false
       use-key-prefix: true
       key-prefix: "product:"
+      # Surface cache hit/miss/put counts to Micrometer → /actuator/metrics/cache.gets
+      enable-statistics: true
 
 management:
   endpoints:
