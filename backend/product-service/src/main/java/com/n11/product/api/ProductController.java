@@ -1,5 +1,6 @@
 package com.n11.product.api;
 
+import com.n11.product.api.dto.AutocompleteSuggestion;
 import com.n11.product.api.dto.PageResponse;
 import com.n11.product.api.dto.ProductDetailDto;
 import com.n11.product.api.dto.ProductSummaryDto;
@@ -13,6 +14,8 @@ import org.springframework.data.domain.Sort;
 import org.springframework.data.web.PageableDefault;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.*;
+
+import java.util.List;
 
 @RestController
 @RequestMapping("/api/products")
@@ -43,5 +46,13 @@ public class ProductController {
     @GetMapping("/slug/{slug}")
     public ResponseEntity<ProductDetailDto> bySlug(@PathVariable String slug) {
         return ResponseEntity.ok(service.findBySlug(slug));
+    }
+
+    @Operation(summary = "Header search-bar autocomplete — top suggestions for a prefix")
+    @GetMapping("/autocomplete")
+    public List<AutocompleteSuggestion> autocomplete(
+            @Parameter(description = "Search prefix") @RequestParam String q,
+            @Parameter(description = "Max suggestions") @RequestParam(defaultValue = "8") int limit) {
+        return service.autocomplete(q, limit);
     }
 }
