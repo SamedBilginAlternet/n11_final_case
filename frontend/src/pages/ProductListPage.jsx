@@ -1,5 +1,5 @@
 import { useEffect, useState } from 'react';
-import { Link, useSearchParams } from 'react-router-dom';
+import { useSearchParams } from 'react-router-dom';
 import { api } from '../api/client.js';
 import Pagination from '../components/Pagination.jsx';
 import ProductCard from '../components/ProductCard.jsx';
@@ -76,17 +76,15 @@ export default function ProductListPage() {
       {loading ? (
         <div className="grid grid-cols-2 gap-4 sm:grid-cols-3 lg:grid-cols-4">
           {Array.from({ length: 8 }).map((_, i) => (
-            <div key={i} className="card h-72 animate-pulse bg-slate-100" />
+            <div key={i} className="card h-72 animate-pulse bg-gray-100" />
           ))}
         </div>
       ) : data.content.length === 0 ? (
-        <p className="text-slate-500">Aramaya uygun ürün bulunamadı.</p>
+        <p className="text-gray-500">Aramaya uygun ürün bulunamadı.</p>
       ) : (
         <div className="grid grid-cols-2 gap-4 sm:grid-cols-3 lg:grid-cols-4">
           {data.content.map((product) => (
-            <Link key={product.id} to={`/products/${product.slug}`}>
-              <ProductCard product={product} />
-            </Link>
+            <ProductCard key={product.id} product={product} />
           ))}
         </div>
       )}
@@ -110,7 +108,7 @@ function FilterChip({ active, onClick, children }) {
     <button
       onClick={onClick}
       className={`rounded-full border px-3 py-1 text-xs font-medium transition-colors ${
-        active ? 'border-n11-orange bg-n11-orange text-white' : 'border-slate-300 bg-white text-slate-600 hover:bg-slate-50'
+        active ? 'border-n11-pink bg-n11-pink text-white' : 'border-gray-300 bg-white text-gray-600 hover:bg-gray-50'
       }`}
     >
       {children}
