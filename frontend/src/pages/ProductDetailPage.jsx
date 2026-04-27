@@ -1,14 +1,12 @@
 import { useEffect, useState } from 'react';
-import { Link, useParams } from 'react-router-dom';
+import { useParams } from 'react-router-dom';
 import { api } from '../api/client.js';
-import { useAuth } from '../state/AuthContext.jsx';
 import { useCart } from '../state/CartContext.jsx';
 import RatingStars from '../components/product/RatingStars.jsx';
 import { formatCurrency } from '../utils/format.js';
 
 export default function ProductDetailPage() {
   const { slug } = useParams();
-  const { isAuthed } = useAuth();
   const { addItem } = useCart();
 
   const [product, setProduct] = useState(null);
@@ -33,10 +31,9 @@ export default function ProductDetailPage() {
   const oldPrice = Number(product.price) * 1.2;
 
   async function onAddToCart() {
-    if (!isAuthed) return;
     setAdding(true);
     try {
-      await addItem(product.id, quantity);
+      await addItem(product, quantity);
     } finally {
       setAdding(false);
     }
@@ -74,29 +71,19 @@ export default function ProductDetailPage() {
           </span>
         </div>
 
-        {isAuthed ? (
-          <div className="flex items-center gap-3">
-            <input
-              type="number"
-              min={1}
-              max={Math.max(1, product.stock)}
-              value={quantity}
-              onChange={(e) => setQuantity(Math.max(1, Number(e.target.value)))}
-              className="input w-24"
-            />
-            <button onClick={onAddToCart} disabled={!inStock || adding} className="btn-primary">
-              {adding ? 'Ekleniyor…' : 'Sepete Ekle'}
-            </button>
-          </div>
-        ) : (
-          <p className="text-sm text-gray-500">
-            Sepete eklemek için{' '}
-            <Link to="/login" className="font-medium text-n11-pink hover:text-n11-pinkDark">
-              giriş yap
-            </Link>
-            .
-          </p>
-        )}
+        <div className="flex items-center gap-3">
+          <input
+            type="number"
+            min={1}
+            max={Math.max(1, product.stock)}
+            value={quantity}
+            onChange={(e) => setQuantity(Math.max(1, Number(e.target.value)))}
+            className="input w-24"
+          />
+          <button onClick={onAddToCart} disabled={!inStock || adding} className="btn-primary">
+            {adding ? 'Ekleniyor…' : 'Sepete Ekle'}
+          </button>
+        </div>
       </div>
     </div>
   );
