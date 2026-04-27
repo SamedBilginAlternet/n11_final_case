@@ -1,6 +1,6 @@
 # n11 Final Case — E-Ticaret
 
-Spring Boot 3.3 / Java 21 **8 mikroservis** (auth, product, cart, order, payment, notification,
+Spring Boot 3.3 / Java 21 **7 mikroservis** (auth, product, cart, order, payment,
 **chatbot (Groq / Claude)** ve gateway), RabbitMQ üzerinde **choreography saga**, JWT auth,
 Iyzico ödeme entegrasyonu, **n11 magenta** temalı React + Vite + Tailwind frontend
 (component-driven, mock-data backed) ve **GitHub Actions → DigitalOcean droplet + GHCR**
@@ -14,8 +14,8 @@ deploy boru hattı (her deploy'da Slack bildirimi).
 | **Ödeme** | iyzipay-java 2.0.65 (sandbox/prod toggle); offline `MockPaymentGateway` fallback |
 | **AI Asistan** | Pluggable provider — **Groq** (free, OpenAI-compatible, default) / **Anthropic Claude** / **Mock**; ürün katalog grounding ile RAG |
 | **Frontend** | React 18, Vite 5, Tailwind 3 (n11 magenta tema), react-router 6, axios, react-hot-toast; floating sticky chatbot |
-| **DevOps** | Docker Compose, Jib, GitHub Actions, **DigitalOcean droplet** (SSH deploy), **GHCR** (free image registry), Caddy reverse proxy + auto-TLS, Slack incoming webhook |
-| **Test** | JUnit 5 + Mockito + Testcontainers (PostgreSQL & RabbitMQ) |
+| **DevOps** | Docker Compose, Jib, GitHub Actions, **DigitalOcean droplet** (SSH deploy), **GHCR** (free image registry), Caddy reverse proxy + auto-TLS, Slack webhook (yalnızca CI/CD deploy bildirimi) |
+| **Test** | JUnit 5 + Mockito + Testcontainers (PostgreSQL) |
 
 ## İçindekiler
 
@@ -40,10 +40,9 @@ deploy boru hattı (her deploy'da Slack bildirimi).
 ```
 browser → Caddy (TLS) → frontend (nginx) → api-gateway → { auth, product, cart, order, payment, chatbot }
                                                   │
-                                                  ├─► PostgreSQL  (per-service DB)
-                                                  ├─► RabbitMQ    (saga.exchange / topic)
-                                                  ├─► Groq/Claude (chatbot-service AI)
-                                                  └─► Slack       (notification-service webhook)
+                                                  ├─► PostgreSQL   (per-service DB)
+                                                  ├─► RabbitMQ     (saga.exchange / topic)
+                                                  └─► Groq/Claude  (chatbot-service AI)
 ```
 
 Detaylı diyagram: [`docs/architecture.md`](docs/architecture.md).
@@ -53,26 +52,24 @@ Detaylı diyagram: [`docs/architecture.md`](docs/architecture.md).
 | Servis | Port | DB | Görev |
 |---|---|---|---|
 | **api-gateway** | 8080 | — | Public giriş, JWT relay, aggregated Swagger UI |
-| **auth-service** | 8081 | `authdb` | `register`, `login`, `users/me`, JWT issuance, `UserRegistered` publisher |
+| **auth-service** | 8081 | `authdb` | `register`, `login`, `users/me`, JWT issuance |
 | **product-service** | 8082 | `productdb` | Pagination + search + categories + `/autocomplete` (header search bar) + ratings |
 | **cart-service** | 8083 | `cartdb` | Sepet CRUD, `OrderConfirmed` consumer (sepeti temizler) |
 | **order-service** | 8084 | `orderdb` | Checkout, state machine, saga publisher + payment-event consumer |
 | **payment-service** | 8085 | `paymentdb` | `OrderCreated` consumer, Iyzico, `Payment*` publisher |
-| **notification-service** | 8086 | — | Saga olaylarını fan-out tüketir, Slack webhook'a yazar |
-| **chatbot-service** | 8087 | `chatbotdb` | `POST /api/chat` — Anthropic Claude entegrasyonu, oturum geçmişi, ürün katalog grounding |
+| **chatbot-service** | 8087 | `chatbotdb` | `POST /api/chat` — Groq / Claude provider, oturum geçmişi, ürün katalog grounding |
 
 Her servis kendi `pom.xml`'i, kendi Flyway migration set'i ve kendi DB'si ile bağımsız
 olarak deploy edilebilir.
 
 ## Saga Akışı
 
-3 saga var:
+İki choreography saga var (Slack runtime bildirimi yok — Slack sadece CI deploy için):
 
-1. **UserRegistrationSaga** — kayıt sonrası Slack bildirimi (publisher: auth, consumer: notification).
-2. **CheckoutSaga (mutluyolcu)** — `order.created` → ödeme → `payment.succeeded` → `order.confirmed` →
-   sepeti temizleme + Slack bildirimi.
-3. **CheckoutSaga (compensation)** — ödeme reddedildiğinde `payment.failed` → `order.cancelled` →
-   Slack uyarısı; sipariş `CANCELLED` durumuna düşer ve müşteri tekrar deneyebilir.
+1. **CheckoutSaga (mutluyolcu)** — `order.created` → ödeme → `payment.succeeded` →
+   `order.confirmed` → cart-service sepeti temizler.
+2. **CheckoutSaga (compensation)** — ödeme reddedildiğinde `payment.failed` →
+   `order.cancelled`; sipariş `CANCELLED` durumuna düşer ve müşteri tekrar deneyebilir.
 
 ASCII waterfall + idempotency notları: [`docs/saga.md`](docs/saga.md).
 
@@ -158,7 +155,7 @@ JWT'yi kullanmak için Swagger'da "Authorize" → `Bearer <token>` olarak yapı�
 
 | Workflow | Tetikleyici | Görev |
 |---|---|---|
-| [`backend.yml`](.github/workflows/backend.yml) | `push`/`pr` (backend changes) | 9 modül için matrix `mvn verify` |
+| [`backend.yml`](.github/workflows/backend.yml) | `push`/`pr` (backend changes) | 8 modül için matrix `mvn verify` |
 | [`frontend.yml`](.github/workflows/frontend.yml) | `push`/`pr` (frontend changes) | npm ci → lint → vitest → vite build → dist artifact |
 | [`deploy.yml`](.github/workflows/deploy.yml) | `push main` veya `v*` tag | Jib + Docker → GHCR; SSH ile droplet'e deploy; **her run sonunda Slack bildirimi** |
 
@@ -190,7 +187,6 @@ n11_final_case/
 │   ├── cart-service/           sepet CRUD + saga consumer
 │   ├── order-service/          checkout + saga publisher + payment-event consumer
 │   ├── payment-service/        Iyzico + saga participant
-│   ├── notification-service/   saga fan-out → Slack
 │   ├── chatbot-service/        Groq / Claude / Mock — Türkçe AI asistan
 │   └── Dockerfile              tüm servisler için tek multi-stage build (ARG SERVICE)
 ├── frontend/                   React + Vite + Tailwind + React Router 6
