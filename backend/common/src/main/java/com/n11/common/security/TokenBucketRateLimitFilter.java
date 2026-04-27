@@ -89,7 +89,7 @@ public class TokenBucketRateLimitFilter extends OncePerRequestFilter {
 
         log.warn("Rate limit exceeded path={} key={} retryAfter={}s",
                 request.getRequestURI(), key, retryAfterSeconds);
-        response.setStatus(HttpServletResponse.SC_TOO_MANY_REQUESTS);
+        response.setStatus(429); // Jakarta Servlet 6 dropped SC_TOO_MANY_REQUESTS — use the literal
         response.setHeader("Retry-After", String.valueOf(retryAfterSeconds));
         response.setContentType("application/json");
         response.getWriter().write(
