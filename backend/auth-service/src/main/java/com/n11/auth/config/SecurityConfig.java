@@ -1,9 +1,10 @@
 package com.n11.auth.config;
 
 import com.n11.auth.security.GitHubEmailAwareUserService;
-import com.n11.auth.security.JwtAuthenticationFilter;
 import com.n11.auth.security.OAuth2LoginFailureHandler;
 import com.n11.auth.security.OAuth2LoginSuccessHandler;
+import com.n11.common.security.JwtAuthenticationFilter;
+import com.n11.common.security.JwtParser;
 import lombok.RequiredArgsConstructor;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
@@ -21,7 +22,6 @@ import org.springframework.security.web.authentication.UsernamePasswordAuthentic
 @RequiredArgsConstructor
 public class SecurityConfig {
 
-    private final JwtAuthenticationFilter jwtAuthenticationFilter;
     private final SocialLoginProperties socialLoginProperties;
     private final OAuth2LoginSuccessHandler oAuth2LoginSuccessHandler;
     private final OAuth2LoginFailureHandler oAuth2LoginFailureHandler;
@@ -33,7 +33,17 @@ public class SecurityConfig {
     }
 
     @Bean
-    public SecurityFilterChain filterChain(HttpSecurity http) throws Exception {
+    public JwtParser jwtParser(JwtProperties props) {
+        return new JwtParser(props.secret(), props.issuer());
+    }
+
+    @Bean
+    public JwtAuthenticationFilter jwtAuthenticationFilter(JwtParser jwtParser) {
+        return new JwtAuthenticationFilter(jwtParser);
+    }
+
+    @Bean
+    public SecurityFilterChain filterChain(HttpSecurity http, JwtAuthenticationFilter jwtFilter) throws Exception {
         http
                 .csrf(csrf -> csrf.disable())
                 .formLogin(f -> f.disable())
@@ -45,7 +55,7 @@ public class SecurityConfig {
                         .requestMatchers("/actuator/**", "/v3/api-docs/**", "/swagger-ui/**", "/swagger-ui.html").permitAll()
                         .anyRequest().authenticated()
                 )
-                .addFilterBefore(jwtAuthenticationFilter, UsernamePasswordAuthenticationFilter.class);
+                .addFilterBefore(jwtFilter, UsernamePasswordAuthenticationFilter.class);
 
         if (socialLoginProperties.anyEnabled()) {
             http.oauth2Login(oauth -> oauth
