@@ -33,11 +33,17 @@
                        │ REST → product-service │
                        ▼                        ▼
                 ┌─────────────────────────────────────────────────────────┐
-                │            RabbitMQ — saga.exchange (topic)             │  :5672 / :15672
+                │   RabbitMQ — saga.exchange + saga.exchange.dlx (topic)  │  :5672 / :15672
                 └─────────────────────────────────────────────────────────┘
 
 ┌─────────────────────────────────────────────────────────────────────────┐
 │                       PostgreSQL 16 (per-service DB)   :5432            │
+└─────────────────────────────────────────────────────────────────────────┘
+
+┌─────────────────────────────────────────────────────────────────────────┐
+│   Redis 7 (cache)   :6379                                               │
+│   product:*  → categories (1h), products:byId/bySlug (5m), autocomplete │
+│   cart:*     → coupons:byCode (60s), campaigns:active (60s)             │
 └─────────────────────────────────────────────────────────────────────────┘
 ```
 
@@ -75,6 +81,17 @@
   event'leri sessizce yok sayar — at-least-once teslimat altında güvenli.
 - **Pluggable AI provider.** `chatbot-service` `MOCK | GROQ | CLAUDE` provider'larını
   `@ConditionalOnProperty` ile seçer; default Groq (ücretsiz).
+- **Cache aside (Redis).** `product-service` ve `cart-service` Spring `@Cacheable`
+  + Redis ile sıcak okuma yollarını DB'den çekmiyor. TTL'ler iş kuralına bağlı
+  (`categories=1h`, `products:byId=5m`, `coupons:byCode=60s`); kupon rezervasyon
+  sagası (`reserveOne`/`releaseOne`) `@CacheEvict` ile cache'i hemen siler →
+  sayaç değişiklikleri TTL'i beklemeden quote'a yansır. Detaylar README "Cache
+  (Redis)" bölümünde.
+- **Defense-in-depth security.** Her servis kendi `SecurityConfig`'ine sahip
+  (product=permitAll explicit, payment=JWT+ownership, chatbot=permitAll+rate-limit,
+  auth=permitAll+rate-limit on `/login` & `/register`). Common modülünde
+  paylaşılan `JwtAuthenticationFilter` + `TokenBucketRateLimitFilter` — kod
+  tekrarı yok, davranış tutarlı.
 
 ## Correlation ID
 

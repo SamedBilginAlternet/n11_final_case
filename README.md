@@ -41,7 +41,8 @@ deploy boru hattı (her deploy'da Slack bildirimi).
 browser → Caddy (TLS) → frontend (nginx) → api-gateway → { auth, product, cart, order, payment, chatbot }
                                                   │
                                                   ├─► PostgreSQL   (per-service DB)
-                                                  ├─► RabbitMQ     (saga.exchange / topic)
+                                                  ├─► RabbitMQ     (saga.exchange + saga.exchange.dlx / topic)
+                                                  ├─► Redis        (cache: product detail, categories, coupons, campaigns)
                                                   └─► Groq/Claude  (chatbot-service AI)
 ```
 
@@ -87,10 +88,62 @@ docker compose up --build
 | Aggregated Swagger UI | http://localhost:8080/swagger-ui.html |
 | RabbitMQ Management | http://localhost:15672 (`guest` / `guest`) |
 | PostgreSQL | localhost:5432 (`n11` / `n11pw`) |
+| Redis (cache) | localhost:6379 — `redis-cli KEYS 'product:*'` / `'cart:*'` |
 
 `/api/categories` ile sample veriyi doğrulayabilirsiniz; `http/` dizininde IntelliJ /
 VS Code REST Client için hazır request collection mevcut (`auth.http`,
 `products.http`, `cart-and-checkout.http`).
+
+### Cache (Redis)
+
+`product-service` ve `cart-service` Redis-backed `@Cacheable` ile sıcak okuma yollarını
+DB'den çekmiyor. Hit rate hedefi: bir gezinme oturumunda **>%90 cache hit** kategoriler için,
+**>%70 hit** ürün detayları için.
+
+**Cache topology** (`*Service/.../config/CacheConfig.java`):
+
+| Service | Cache adı | TTL | Anahtar | Eviction |
+|---|---|---|---|---|
+| product | `categories`           | 1h  | `'all'` | TTL only (admin değiştirirse 1 saat içinde) |
+| product | `products:byId`        | 5m  | `productId` | TTL only |
+| product | `products:bySlug`      | 5m  | `slug`      | TTL only |
+| product | `products:autocomplete`| 1m  | `q.lower():capped-limit` | TTL only |
+| cart    | `coupons:byCode`       | 60s | `code.toUpperCase()` | TTL **+ saga `reserveOne`/`releaseOne` evict** |
+| cart    | `campaigns:active`     | 60s | `'all'` | TTL only |
+
+**Production-grade detaylar**:
+- **Serialization**: anahtarlar `StringRedisSerializer` (Redis-CLI'de okunabilir),
+  değerler `GenericJackson2JsonRedisSerializer` JSON. JDK binary serialization
+  yerine JSON çünkü class rename'lerine dirençli + log'da görülebilir.
+- **Polymorphic type validator**: Jackson default-typing açıkken sadece
+  `com.n11.{product|cart}.*` + `java.util` / `time` / `math` paketleri whitelist
+  — gadget chain'lere kapalı.
+- **Saga eviction**: `CouponRepository.reserveOne` / `releaseOne` üzerinde
+  `@CacheEvict` — sepet quote'undan order checkout'a geçişte saga sayacı
+  bumple, cache anında silinir. Stale "kupon hâlâ var" gösterimi yok.
+- **Search results cached değil**: filter cardinality (categoryId × q × page × sort)
+  patlıyor, hit rate düşük olur, memory israfı.
+
+**Doğrulama**:
+
+```bash
+# Önce kategorileri çek (cache miss → DB)
+curl -s http://localhost:8080/api/categories > /dev/null
+
+# Redis'te ne var?
+docker exec n11-final-case-redis-1 redis-cli KEYS 'product:*'
+# product:categories::all
+# product:products:byId::1   (eğer ürün detayı çağırıldıysa)
+
+# Cache'in gerçekten devrede olduğunu time'la doğrula:
+for i in 1 2 3; do
+  time curl -s -o /dev/null http://localhost:8080/api/products/slug/iphone-15
+done
+# 1. çağrı: ~50-100ms (DB)
+# 2. ve 3. çağrı: ~5-15ms (Redis hit)
+```
+
+`docker compose down -v` Redis volume'unu da siler — yeni `up` cold cache ile başlar.
 
 ### Iyzico
 

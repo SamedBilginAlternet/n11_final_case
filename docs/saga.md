@@ -5,6 +5,7 @@
 | | |
 |---|---|
 | Exchange | `saga.exchange` (topic, durable) |
+| DLX | `saga.exchange.dlx` (topic, durable) — rejected/expired mesajlar buraya forward |
 | Routing keys | `order.created`, `payment.succeeded`, `payment.failed`, `order.confirmed`, `order.cancelled` |
 
 ## Queue Bindings
