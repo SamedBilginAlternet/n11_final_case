@@ -11,7 +11,11 @@
 
     <artifactId>chatbot-service</artifactId>
     <name>chatbot-service</name>
-    <description>Conversational shopping assistant powered by Anthropic Claude</description>
+    <description>Conversational shopping assistant — Groq / Claude / Mock provider</description>
+
+    <properties>
+        <jib.port>8087</jib.port>
+    </properties>
 
     <dependencies>
         <dependency>
@@ -91,17 +95,6 @@
             <plugin>
                 <groupId>com.google.cloud.tools</groupId>
                 <artifactId>jib-maven-plugin</artifactId>
-                <configuration>
-                    <from><image>eclipse-temurin:21-jre-alpine</image></from>
-                    <to><image>${project.artifactId}:${project.version}</image></to>
-                    <container>
-                        <ports><port>8087</port></ports>
-                        <jvmFlags>
-                            <jvmFlag>-XX:+UseG1GC</jvmFlag>
-                            <jvmFlag>-XX:MaxRAMPercentage=75</jvmFlag>
-                        </jvmFlags>
-                    </container>
-                </configuration>
             </plugin>
         </plugins>
     </build>

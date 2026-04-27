@@ -13,6 +13,10 @@
     <name>order-service</name>
     <description>Order lifecycle and checkout saga publisher</description>
 
+    <properties>
+        <jib.port>8084</jib.port>
+    </properties>
+
     <dependencies>
         <dependency>
             <groupId>com.n11</groupId>
@@ -109,17 +113,6 @@
             <plugin>
                 <groupId>com.google.cloud.tools</groupId>
                 <artifactId>jib-maven-plugin</artifactId>
-                <configuration>
-                    <from><image>eclipse-temurin:21-jre-alpine</image></from>
-                    <to><image>${project.artifactId}:${project.version}</image></to>
-                    <container>
-                        <ports><port>8084</port></ports>
-                        <jvmFlags>
-                            <jvmFlag>-XX:+UseG1GC</jvmFlag>
-                            <jvmFlag>-XX:MaxRAMPercentage=75</jvmFlag>
-                        </jvmFlags>
-                    </container>
-                </configuration>
             </plugin>
         </plugins>
     </build>
