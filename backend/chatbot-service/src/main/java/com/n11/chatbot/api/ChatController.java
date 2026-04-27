@@ -3,6 +3,7 @@ package com.n11.chatbot.api;
 import com.n11.chatbot.api.dto.ChatReply;
 import com.n11.chatbot.api.dto.ChatRequest;
 import com.n11.chatbot.api.dto.HistoryMessage;
+import com.n11.chatbot.api.mapper.ChatMessageMapper;
 import com.n11.chatbot.service.ChatService;
 import io.swagger.v3.oas.annotations.Operation;
 import io.swagger.v3.oas.annotations.tags.Tag;
@@ -20,6 +21,7 @@ import java.util.UUID;
 public class ChatController {
 
     private final ChatService chatService;
+    private final ChatMessageMapper messageMapper;
 
     @Operation(summary = "Send a message to the assistant. Returns a sessionId — keep it for follow-ups.")
     @PostMapping
@@ -35,8 +37,6 @@ public class ChatController {
     @Operation(summary = "Get full history for a session")
     @GetMapping("/{sessionId}/history")
     public List<HistoryMessage> history(@PathVariable String sessionId) {
-        return chatService.history(sessionId).stream()
-                .map(m -> new HistoryMessage(m.getId(), m.getRole(), m.getContent(), m.getCreatedAt().toString()))
-                .toList();
+        return messageMapper.toDtos(chatService.history(sessionId));
     }
 }
