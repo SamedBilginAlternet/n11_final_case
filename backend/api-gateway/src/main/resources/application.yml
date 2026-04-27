@@ -41,6 +41,11 @@ spring:
           predicates:
             - Path=/api/payments/**
 
+        - id: chatbot
+          uri: ${CHATBOT_SERVICE_URL:http://localhost:8087}
+          predicates:
+            - Path=/api/chat/**
+
         - id: auth-docs
           uri: ${AUTH_SERVICE_URL:http://localhost:8081}
           predicates:
@@ -76,6 +81,13 @@ spring:
           filters:
             - SetPath=/v3/api-docs
 
+        - id: chatbot-docs
+          uri: ${CHATBOT_SERVICE_URL:http://localhost:8087}
+          predicates:
+            - Path=/aggregated-docs/chatbot
+          filters:
+            - SetPath=/v3/api-docs
+
 springdoc:
   swagger-ui:
     path: /swagger-ui.html
@@ -90,6 +102,8 @@ springdoc:
         url: /aggregated-docs/orders
       - name: payments
         url: /aggregated-docs/payments
+      - name: chatbot
+        url: /aggregated-docs/chatbot
 
 management:
   endpoints:
