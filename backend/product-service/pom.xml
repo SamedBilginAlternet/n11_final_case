@@ -39,6 +39,13 @@
             <groupId>org.springframework.boot</groupId>
             <artifactId>spring-boot-starter-actuator</artifactId>
         </dependency>
+        <!-- pulled in only to give us a SecurityFilterChain bean we can permitAll
+             explicitly. With the starter on the classpath, default security
+             would otherwise basic-auth the public catalog. -->
+        <dependency>
+            <groupId>org.springframework.boot</groupId>
+            <artifactId>spring-boot-starter-security</artifactId>
+        </dependency>
 
         <dependency>
             <groupId>org.flywaydb</groupId>
