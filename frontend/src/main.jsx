@@ -6,18 +6,21 @@ import App from './App.jsx';
 import { AuthProvider } from './state/AuthContext.jsx';
 import { CartProvider } from './state/CartContext.jsx';
 import { ChatbotProvider } from './state/ChatbotContext.jsx';
+import { WishlistProvider } from './state/WishlistContext.jsx';
 import './styles/index.css';
 
 ReactDOM.createRoot(document.getElementById('root')).render(
   <React.StrictMode>
     <BrowserRouter>
       <AuthProvider>
-        <CartProvider>
-          <ChatbotProvider>
-            <App />
-            <Toaster position="top-right" toastOptions={{ duration: 4000 }} />
-          </ChatbotProvider>
-        </CartProvider>
+        <WishlistProvider>
+          <CartProvider>
+            <ChatbotProvider>
+              <App />
+              <Toaster position="top-right" toastOptions={{ duration: 4000 }} />
+            </ChatbotProvider>
+          </CartProvider>
+        </WishlistProvider>
       </AuthProvider>
     </BrowserRouter>
   </React.StrictMode>,
