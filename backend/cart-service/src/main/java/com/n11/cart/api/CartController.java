@@ -1,5 +1,6 @@
 package com.n11.cart.api;
 
+import com.n11.cart.api.ApplyCouponRequest;
 import com.n11.cart.api.dto.AddItemRequest;
 import com.n11.cart.api.dto.CartDto;
 import com.n11.cart.api.dto.UpdateQuantityRequest;
@@ -48,5 +49,18 @@ public class CartController {
     public CartDto removeItem(@AuthenticationPrincipal AuthenticatedUser user,
                               @PathVariable Long itemId) {
         return cartService.removeItem(user.userId(), itemId);
+    }
+
+    @Operation(summary = "Attach a coupon code to the cart (re-quotes immediately)")
+    @PostMapping("/coupon")
+    public CartDto applyCoupon(@AuthenticationPrincipal AuthenticatedUser user,
+                               @RequestBody @Valid ApplyCouponRequest request) {
+        return cartService.applyCoupon(user.userId(), request.code());
+    }
+
+    @Operation(summary = "Detach the coupon from the cart")
+    @DeleteMapping("/coupon")
+    public CartDto clearCoupon(@AuthenticationPrincipal AuthenticatedUser user) {
+        return cartService.clearCoupon(user.userId());
     }
 }

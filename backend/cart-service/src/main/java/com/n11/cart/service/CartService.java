@@ -7,14 +7,20 @@ import com.n11.cart.client.ProductClient;
 import com.n11.cart.client.ProductSnapshot;
 import com.n11.cart.domain.Cart;
 import com.n11.cart.domain.CartItem;
+import com.n11.cart.domain.Coupon;
 import com.n11.cart.exception.InsufficientStockException;
+import com.n11.cart.pricing.DiscountEngine;
+import com.n11.cart.pricing.Quote;
 import com.n11.cart.repository.CartRepository;
+import com.n11.cart.repository.CouponRepository;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
+import org.springframework.http.HttpStatus;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 import org.springframework.web.server.ResponseStatusException;
 
+import java.time.Instant;
 import java.util.Optional;
 
 import static org.springframework.http.HttpStatus.NOT_FOUND;
@@ -27,11 +33,13 @@ public class CartService {
     private final CartRepository cartRepository;
     private final ProductClient productClient;
     private final CartMapper mapper;
+    private final DiscountEngine discountEngine;
+    private final CouponRepository couponRepository;
 
     @Transactional(readOnly = true)
     public CartDto get(Long userId) {
         return cartRepository.findByUserId(userId)
-                .map(mapper::toDto)
+                .map(this::quoteAndMap)
                 .orElseGet(() -> mapper.empty(userId));
     }
 
@@ -68,7 +76,7 @@ public class CartService {
 
         Cart saved = cartRepository.save(cart);
         log.info("Added productId={} qty={} to cartId={}", product.id(), request.quantity(), saved.getId());
-        return mapper.toDto(saved);
+        return quoteAndMap(saved);
     }
 
     @Transactional
@@ -84,7 +92,7 @@ public class CartService {
                     "Requested quantity exceeds available stock for product " + product.id());
         }
         item.setQuantity(quantity);
-        return mapper.toDto(cartRepository.save(cart));
+        return quoteAndMap(cartRepository.save(cart));
     }
 
     @Transactional
@@ -95,16 +103,51 @@ public class CartService {
                 .filter(i -> i.getId().equals(itemId)).findFirst()
                 .orElseThrow(() -> new ResponseStatusException(NOT_FOUND, "Cart item not found: " + itemId));
         cart.removeItem(target);
-        return mapper.toDto(cartRepository.save(cart));
+        return quoteAndMap(cartRepository.save(cart));
+    }
+
+    @Transactional
+    public CartDto applyCoupon(Long userId, String code) {
+        if (code == null || code.isBlank()) {
+            throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "Coupon code is required");
+        }
+        String normalised = code.trim().toUpperCase();
+
+        Coupon coupon = couponRepository.findByCodeIgnoreCase(normalised)
+                .orElseThrow(() -> new ResponseStatusException(HttpStatus.NOT_FOUND, "Coupon not found"));
+
+        if (!coupon.isValidAt(Instant.now())) {
+            throw new ResponseStatusException(HttpStatus.GONE, "Coupon expired or fully redeemed");
+        }
+
+        Cart cart = cartRepository.findByUserId(userId).orElseGet(() -> createCart(userId));
+        cart.setCouponCode(normalised);
+        Cart saved = cartRepository.save(cart);
+        log.info("Coupon {} attached to cartId={}", normalised, saved.getId());
+        return quoteAndMap(saved);
+    }
+
+    @Transactional
+    public CartDto clearCoupon(Long userId) {
+        Cart cart = cartRepository.findByUserId(userId)
+                .orElseThrow(() -> new ResponseStatusException(NOT_FOUND, "Cart not found"));
+        cart.setCouponCode(null);
+        return quoteAndMap(cartRepository.save(cart));
     }
 
     @Transactional
     public void clear(Long userId) {
         cartRepository.findByUserId(userId).ifPresent(cart -> {
             cart.getItems().clear();
+            cart.setCouponCode(null);
             cartRepository.save(cart);
             log.info("Cleared cartId={} for userId={}", cart.getId(), userId);
         });
+    }
+
+    private CartDto quoteAndMap(Cart cart) {
+        Quote quote = discountEngine.quote(cart);
+        return mapper.toDto(cart, quote);
     }
 
     private Cart createCart(Long userId) {
