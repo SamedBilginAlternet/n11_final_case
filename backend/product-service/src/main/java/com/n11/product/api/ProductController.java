@@ -4,9 +4,19 @@ import com.n11.product.api.dto.AutocompleteSuggestion;
 import com.n11.product.api.dto.PageResponse;
 import com.n11.product.api.dto.ProductDetailDto;
 import com.n11.product.api.dto.ProductSummaryDto;
+import com.n11.product.api.dto.ProductWriteRequest;
 import com.n11.product.api.dto.SearchFacetsDto;
 import com.n11.product.api.dto.SearchSort;
+import com.n11.product.service.ProductAdminService;
 import com.n11.product.service.ProductQueryService;
+import jakarta.validation.Valid;
+import org.springframework.http.HttpStatus;
+import org.springframework.security.access.prepost.PreAuthorize;
+import org.springframework.web.bind.annotation.DeleteMapping;
+import org.springframework.web.bind.annotation.PostMapping;
+import org.springframework.web.bind.annotation.PutMapping;
+import org.springframework.web.bind.annotation.RequestBody;
+import org.springframework.web.bind.annotation.ResponseStatus;
 import io.swagger.v3.oas.annotations.Operation;
 import io.swagger.v3.oas.annotations.Parameter;
 import io.swagger.v3.oas.annotations.tags.Tag;
@@ -31,6 +41,7 @@ import java.util.Set;
 public class ProductController {
 
     private final ProductQueryService service;
+    private final ProductAdminService adminService;
 
     @Operation(summary = "Paginated product search with FTS + filters + sort")
     @GetMapping
@@ -104,5 +115,30 @@ public class ProductController {
             @Parameter(description = "Search prefix") @RequestParam String q,
             @Parameter(description = "Max suggestions") @RequestParam(defaultValue = "8") int limit) {
         return service.autocomplete(q, limit);
+    }
+
+    // ----------------------------------------------------- Admin CRUD
+
+    @Operation(summary = "Admin — create a product")
+    @PreAuthorize("hasRole('ADMIN')")
+    @PostMapping
+    @ResponseStatus(HttpStatus.CREATED)
+    public ProductDetailDto create(@RequestBody @Valid ProductWriteRequest body) {
+        return adminService.create(body);
+    }
+
+    @Operation(summary = "Admin — update a product")
+    @PreAuthorize("hasRole('ADMIN')")
+    @PutMapping("/{id:\\d+}")
+    public ProductDetailDto update(@PathVariable Long id, @RequestBody @Valid ProductWriteRequest body) {
+        return adminService.update(id, body);
+    }
+
+    @Operation(summary = "Admin — delete a product")
+    @PreAuthorize("hasRole('ADMIN')")
+    @DeleteMapping("/{id:\\d+}")
+    @ResponseStatus(HttpStatus.NO_CONTENT)
+    public void delete(@PathVariable Long id) {
+        adminService.delete(id);
     }
 }

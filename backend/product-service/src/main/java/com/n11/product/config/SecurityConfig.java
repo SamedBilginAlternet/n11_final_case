@@ -5,6 +5,7 @@ import com.n11.common.security.JwtParser;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
 import org.springframework.http.HttpMethod;
+import org.springframework.security.config.annotation.method.configuration.EnableMethodSecurity;
 import org.springframework.security.config.annotation.web.builders.HttpSecurity;
 import org.springframework.security.config.annotation.web.configuration.EnableWebSecurity;
 import org.springframework.security.config.http.SessionCreationPolicy;
@@ -20,6 +21,7 @@ import org.springframework.security.web.authentication.UsernamePasswordAuthentic
  */
 @Configuration
 @EnableWebSecurity
+@EnableMethodSecurity
 public class SecurityConfig {
 
     @Bean
@@ -44,6 +46,13 @@ public class SecurityConfig {
                         .requestMatchers(HttpMethod.GET, "/api/products/**", "/api/categories/**").permitAll()
                         .requestMatchers(HttpMethod.PUT, "/api/products/*/reviews/**").authenticated()
                         .requestMatchers(HttpMethod.DELETE, "/api/products/*/reviews/**").authenticated()
+                        // Admin product CRUD — @PreAuthorize on the controller is
+                        // the actual ADMIN gate, but require a valid JWT here too
+                        // so unauthenticated requests get 401 (not 403) and the
+                        // panel's interceptor can wipe the session cleanly.
+                        .requestMatchers(HttpMethod.POST,   "/api/products").authenticated()
+                        .requestMatchers(HttpMethod.PUT,    "/api/products/*").authenticated()
+                        .requestMatchers(HttpMethod.DELETE, "/api/products/*").authenticated()
                         .requestMatchers("/actuator/**", "/v3/api-docs/**", "/swagger-ui/**", "/swagger-ui.html").permitAll()
                         .anyRequest().permitAll()
                 )
