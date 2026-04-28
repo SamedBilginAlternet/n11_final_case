@@ -243,6 +243,7 @@ event'lerini dinler ve müşteriye Türkçe Thymeleaf template'leri ile mail ata
 | `OrderConfirmedEvent` | `order.confirmed` | Ödeme onaylandığında (saga) | `order-confirmed.html` (pembe-mor) |
 | `OrderShippedEvent` | `order.shipped` | Admin `POST /api/orders/{id}/shipped` | `order-shipped.html` (mavi, kargo + tracking no) |
 | `OrderDeliveredEvent` | `order.delivered` | Admin `POST /api/orders/{id}/delivered` | `order-delivered.html` (yeşil, yorum çağrısı) |
+| `LowStockReportEvent` | `inventory.low-stock-report` | product-service `@Scheduled` cron taraması (varsayılan günlük 09:00 UTC) | `low-stock-alert.html` (turuncu-kırmızı, admin paneli linki) |
 
 **Idempotency**: `notifications` tablosunda `UNIQUE(order_id, kind)`.
 RabbitMQ aynı mesajı redeliver ederse audit insert constraint'e takılır →

@@ -43,6 +43,10 @@ n11:
     from-address: ${MAIL_FROM_ADDRESS:no-reply@n11.local}
     from-name: ${MAIL_FROM_NAME:n11 Sipariş}
     storefront-url: ${STOREFRONT_URL:http://localhost:3000}
+    admin-panel-url: ${ADMIN_PANEL_URL:http://localhost:3001}
+    # Empty by default — set via env when low-stock alerts are activated
+    # in product-service.  Listener skips sending if blank.
+    admin-alert-recipient: ${ADMIN_ALERT_RECIPIENT:}
 
 management:
   endpoints:

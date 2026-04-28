@@ -19,6 +19,7 @@ public final class SagaTopology {
         public static final String ORDER_CANCELLED = "order.cancelled";
         public static final String ORDER_SHIPPED = "order.shipped";
         public static final String ORDER_DELIVERED = "order.delivered";
+        public static final String LOW_STOCK_REPORT = "inventory.low-stock-report";
 
         private RoutingKey() {}
     }
@@ -38,6 +39,7 @@ public final class SagaTopology {
         public static final String NOTIFICATION_ORDER_CONFIRMED = "notification.order-confirmed.q";
         public static final String NOTIFICATION_ORDER_SHIPPED = "notification.order-shipped.q";
         public static final String NOTIFICATION_ORDER_DELIVERED = "notification.order-delivered.q";
+        public static final String NOTIFICATION_LOW_STOCK = "notification.low-stock.q";
 
         // Dead-letter parking lots — same name + .dlq, declared alongside their
         // primary queue so failed messages stay durable and inspectable.
@@ -47,6 +49,7 @@ public final class SagaTopology {
         public static final String NOTIFICATION_ORDER_CONFIRMED_DLQ = NOTIFICATION_ORDER_CONFIRMED + ".dlq";
         public static final String NOTIFICATION_ORDER_SHIPPED_DLQ = NOTIFICATION_ORDER_SHIPPED + ".dlq";
         public static final String NOTIFICATION_ORDER_DELIVERED_DLQ = NOTIFICATION_ORDER_DELIVERED + ".dlq";
+        public static final String NOTIFICATION_LOW_STOCK_DLQ = NOTIFICATION_LOW_STOCK + ".dlq";
 
         private Queue() {}
     }

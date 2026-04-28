@@ -127,8 +127,9 @@ services:
     depends_on:
       postgres: { condition: service_healthy }
       redis:    { condition: service_healthy }
+      rabbitmq: { condition: service_healthy }
     environment:
-      <<: [*postgres-env, *redis-env, *otel-env, *jvm-defaults]
+      <<: [*postgres-env, *redis-env, *rabbitmq-env, *otel-env, *jvm-defaults]
       SERVER_PORT: 8082
       POSTGRES_DB: productdb
       JWT_SECRET: ${JWT_SECRET:-changeme-32-byte-min-secret-changeme-please-rotate}
@@ -138,6 +139,13 @@ services:
       GROQ_API_KEY: ${GROQ_API_KEY:-}
       GROQ_RECOMMENDATIONS_MODEL: ${GROQ_RECOMMENDATIONS_MODEL:-llama-3.1-8b-instant}
       ORDER_SERVICE_URL: http://order-service:8084
+      # Low-stock scanner: disabled by default; set LOW_STOCK_ALERTS_ENABLED=true
+      # + ADMIN_ALERT_RECIPIENT (in notification-service) to activate.
+      # Cron default 09:00 UTC daily; override LOW_STOCK_CRON for demo cadence
+      # (e.g. "0 */5 * * * *" runs every 5 minutes).
+      LOW_STOCK_ALERTS_ENABLED: ${LOW_STOCK_ALERTS_ENABLED:-false}
+      LOW_STOCK_THRESHOLD: ${LOW_STOCK_THRESHOLD:-5}
+      LOW_STOCK_CRON: ${LOW_STOCK_CRON:-0 0 9 * * *}
     ports: ["8082:8082"]
 
   cart-service:
@@ -244,6 +252,9 @@ services:
       MAIL_FROM_ADDRESS: ${MAIL_FROM_ADDRESS:-no-reply@n11.local}
       MAIL_FROM_NAME: ${MAIL_FROM_NAME:-n11 Sipariş}
       STOREFRONT_URL: ${STOREFRONT_URL:-http://localhost:3000}
+      ADMIN_PANEL_URL: ${ADMIN_PANEL_URL:-http://localhost:3001}
+      # Low-stock alert recipient — empty disables the listener's send.
+      ADMIN_ALERT_RECIPIENT: ${ADMIN_ALERT_RECIPIENT:-}
     ports: ["8086:8086"]
 
   api-gateway:

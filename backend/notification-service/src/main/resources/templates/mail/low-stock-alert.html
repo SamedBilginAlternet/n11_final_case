@@ -1,0 +1,68 @@
+<!DOCTYPE html>
+<html lang="tr" xmlns:th="http://www.thymeleaf.org">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Düşük stok uyarısı</title>
+</head>
+<body style="margin:0;padding:0;background:#f1f5f9;font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',Helvetica,Arial,sans-serif;color:#1e293b;">
+<table role="presentation" width="100%" cellpadding="0" cellspacing="0" style="background:#f1f5f9;padding:32px 16px;">
+    <tr>
+        <td align="center">
+            <table role="presentation" width="640" cellpadding="0" cellspacing="0" style="background:#ffffff;border-radius:16px;overflow:hidden;box-shadow:0 1px 3px rgba(0,0,0,0.05);">
+                <tr>
+                    <td style="background:linear-gradient(135deg,#f59e0b,#dc2626);padding:32px 32px 24px;color:#ffffff;">
+                        <div style="font-size:13px;letter-spacing:2px;text-transform:uppercase;opacity:0.85;">n11 Admin</div>
+                        <h1 style="margin:8px 0 0;font-size:26px;font-weight:600;">⚠️ Düşük stok uyarısı</h1>
+                    </td>
+                </tr>
+                <tr>
+                    <td style="padding:28px 32px 8px;font-size:15px;line-height:1.6;">
+                        <p style="margin:0 0 16px;">
+                            <strong th:text="${count}">12</strong>
+                            ürünün stoğu eşik değerin (<strong th:text="${threshold}">5</strong>)
+                            altına indi. Aşağıdaki ürünlerin stoğunu acilen güncellemen önerilir.
+                        </p>
+                        <table role="presentation" width="100%" cellpadding="0" cellspacing="0" style="border:1px solid #e2e8f0;border-radius:10px;overflow:hidden;margin:16px 0;">
+                            <thead>
+                                <tr style="background:#f8fafc;">
+                                    <th style="padding:10px 12px;text-align:left;font-size:11px;text-transform:uppercase;letter-spacing:1px;color:#64748b;font-weight:600;">Ürün</th>
+                                    <th style="padding:10px 12px;text-align:left;font-size:11px;text-transform:uppercase;letter-spacing:1px;color:#64748b;font-weight:600;">Slug</th>
+                                    <th style="padding:10px 12px;text-align:right;font-size:11px;text-transform:uppercase;letter-spacing:1px;color:#64748b;font-weight:600;">Stok</th>
+                                </tr>
+                            </thead>
+                            <tbody>
+                                <tr th:each="item : ${items}" style="border-top:1px solid #f1f5f9;">
+                                    <td style="padding:10px 12px;font-size:13px;color:#1e293b;font-weight:500;" th:text="${item.name}">Ürün adı</td>
+                                    <td style="padding:10px 12px;font-size:12px;color:#64748b;font-family:'SF Mono',Menlo,monospace;" th:text="${item.slug}">slug</td>
+                                    <td style="padding:10px 12px;font-size:13px;text-align:right;font-weight:700;"
+                                        th:style="${item.stock == 0} ? 'color:#dc2626;' : 'color:#ea580c;'"
+                                        th:text="${item.stock} + ' adet'">0 adet</td>
+                                </tr>
+                            </tbody>
+                        </table>
+                        <table role="presentation" cellpadding="0" cellspacing="0" style="margin:8px auto 16px;">
+                            <tr>
+                                <td style="border-radius:9999px;background:#1e293b;">
+                                    <a th:href="${adminPanelUrl} + '/products'"
+                                       style="display:inline-block;padding:12px 28px;color:#ffffff;text-decoration:none;font-size:14px;font-weight:600;">
+                                        Admin Paneli'ne Git
+                                    </a>
+                                </td>
+                            </tr>
+                        </table>
+                    </td>
+                </tr>
+                <tr>
+                    <td style="padding:24px 32px 32px;color:#94a3b8;font-size:12px;line-height:1.5;border-top:1px solid #e2e8f0;">
+                        Bu otomatik bir bildirimdir. Eşik değerini değiştirmek için<br>
+                        <code style="font-family:'SF Mono',Menlo,monospace;background:#f1f5f9;padding:1px 5px;border-radius:3px;">LOW_STOCK_THRESHOLD</code>
+                        env değişkenini güncelle.
+                    </td>
+                </tr>
+            </table>
+        </td>
+    </tr>
+</table>
+</body>
+</html>

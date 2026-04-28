@@ -98,14 +98,18 @@ services:
     depends_on:
       postgres: { condition: service_healthy }
       redis:    { condition: service_healthy }
+      rabbitmq: { condition: service_healthy }
     environment:
-      <<: [*postgres-env, *redis-env, *otel-env, *jvm-defaults]
+      <<: [*postgres-env, *redis-env, *rabbitmq-env, *otel-env, *jvm-defaults]
       SERVER_PORT: 8082
       POSTGRES_DB: productdb
       JWT_SECRET: ${JWT_SECRET}
       GROQ_API_KEY: ${GROQ_API_KEY:-}
       GROQ_RECOMMENDATIONS_MODEL: ${GROQ_RECOMMENDATIONS_MODEL:-llama-3.1-8b-instant}
       ORDER_SERVICE_URL: http://order-service:8084
+      LOW_STOCK_ALERTS_ENABLED: ${LOW_STOCK_ALERTS_ENABLED:-false}
+      LOW_STOCK_THRESHOLD: ${LOW_STOCK_THRESHOLD:-5}
+      LOW_STOCK_CRON: ${LOW_STOCK_CRON:-0 0 9 * * *}
     restart: unless-stopped
 
   cart-service:
@@ -190,6 +194,8 @@ services:
       MAIL_FROM_ADDRESS: ${MAIL_FROM_ADDRESS}
       MAIL_FROM_NAME: ${MAIL_FROM_NAME:-n11 Sipariş}
       STOREFRONT_URL: ${STOREFRONT_URL}
+      ADMIN_PANEL_URL: ${ADMIN_PANEL_URL}
+      ADMIN_ALERT_RECIPIENT: ${ADMIN_ALERT_RECIPIENT:-}
     restart: unless-stopped
 
   api-gateway:

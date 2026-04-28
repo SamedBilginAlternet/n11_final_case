@@ -122,6 +122,32 @@ public class RabbitConfig {
                 .with(SagaTopology.RoutingKey.ORDER_DELIVERED);
     }
 
+    // ------------------------------------------------------ low-stock alerts
+
+    @Bean
+    public Queue notificationLowStockQueue() {
+        return primaryQueue(SagaTopology.Queue.NOTIFICATION_LOW_STOCK);
+    }
+
+    @Bean
+    public Binding bindNotificationLowStock(Queue notificationLowStockQueue,
+                                            TopicExchange sagaExchange) {
+        return BindingBuilder.bind(notificationLowStockQueue).to(sagaExchange)
+                .with(SagaTopology.RoutingKey.LOW_STOCK_REPORT);
+    }
+
+    @Bean
+    public Queue notificationLowStockDlq() {
+        return QueueBuilder.durable(SagaTopology.Queue.NOTIFICATION_LOW_STOCK_DLQ).build();
+    }
+
+    @Bean
+    public Binding bindNotificationLowStockDlq(Queue notificationLowStockDlq,
+                                               TopicExchange sagaDlxExchange) {
+        return BindingBuilder.bind(notificationLowStockDlq).to(sagaDlxExchange)
+                .with(SagaTopology.RoutingKey.LOW_STOCK_REPORT);
+    }
+
     // ------------------------------------------------------ shared
 
     @Bean
