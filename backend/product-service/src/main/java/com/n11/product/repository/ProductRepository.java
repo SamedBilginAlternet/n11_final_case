@@ -40,4 +40,6 @@ public interface ProductRepository extends JpaRepository<Product, Long> {
             order by p.ratingAverage desc, p.ratingCount desc
             """)
     List<Product> topRatedInCategory(Long categoryId, Long excludeId, Pageable pageable);
+
+    long countByCategoryId(Long categoryId);
 }
