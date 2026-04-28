@@ -35,6 +35,11 @@ public class SecurityConfig {
                 .sessionManagement(s -> s.sessionCreationPolicy(SessionCreationPolicy.STATELESS))
                 .authorizeHttpRequests(auth -> auth
                         .requestMatchers("/actuator/**", "/v3/api-docs/**", "/swagger-ui/**", "/swagger-ui.html").permitAll()
+                        // Cluster-internal endpoints — api-gateway only routes
+                        // /api/orders/**, so /internal/** stays reachable only
+                        // on the private docker network (product-service uses
+                        // it for co-purchase signals).
+                        .requestMatchers("/internal/**").permitAll()
                         .anyRequest().authenticated()
                 )
                 .addFilterBefore(jwtFilter, UsernamePasswordAuthenticationFilter.class);
