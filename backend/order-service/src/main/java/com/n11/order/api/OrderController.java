@@ -3,6 +3,7 @@ package com.n11.order.api;
 import com.n11.common.security.AuthenticatedUser;
 import com.n11.order.api.dto.OrderDto;
 import com.n11.order.api.mapper.OrderMapper;
+import com.n11.order.domain.OrderStatus;
 import com.n11.order.repository.OrderRepository;
 import com.n11.order.service.CheckoutService;
 import com.n11.order.service.OrderStatusService;
@@ -53,6 +54,23 @@ public class OrderController {
     @GetMapping("/{id}")
     public OrderDto get(@AuthenticationPrincipal AuthenticatedUser user, @PathVariable Long id) {
         return repository.findByIdAndUserId(id, user.userId())
+                .map(mapper::toDto)
+                .orElseThrow(() -> new ResponseStatusException(HttpStatus.NOT_FOUND, "Order not found"));
+    }
+
+    @Operation(summary = "Admin — list every user's orders, newest first, optionally filtered by status")
+    @PreAuthorize("hasRole('ADMIN')")
+    @GetMapping("/admin")
+    public List<OrderDto> adminList(@RequestParam(required = false) OrderStatus status,
+                                    @PageableDefault(size = 20) Pageable pageable) {
+        return repository.findAllByOptionalStatus(status, pageable).map(mapper::toDto).getContent();
+    }
+
+    @Operation(summary = "Admin — get any order by id (no user-scoped guard)")
+    @PreAuthorize("hasRole('ADMIN')")
+    @GetMapping("/admin/{id}")
+    public OrderDto adminGet(@PathVariable Long id) {
+        return repository.findById(id)
                 .map(mapper::toDto)
                 .orElseThrow(() -> new ResponseStatusException(HttpStatus.NOT_FOUND, "Order not found"));
     }

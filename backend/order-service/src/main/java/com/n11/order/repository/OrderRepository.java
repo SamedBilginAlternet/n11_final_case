@@ -18,6 +18,20 @@ public interface OrderRepository extends JpaRepository<Order, Long> {
     Optional<Order> findByIdAndUserId(Long id, Long userId);
 
     /**
+     * Admin listing — every user's orders, optionally filtered by status.
+     * When {@code status} is null the predicate degenerates and we get all
+     * orders.  Sorted by createdAt desc so the panel shows the freshest
+     * activity first.
+     */
+    @Query("""
+            select o from Order o
+            where (:status is null or o.status = :status)
+            order by o.createdAt desc
+            """)
+    Page<Order> findAllByOptionalStatus(@Param("status") com.n11.order.domain.OrderStatus status,
+                                        Pageable pageable);
+
+    /**
      * Co-purchase signal — products that ended up in the same order as
      * {@code productId} most often, within the time window.  Self-matches
      * are excluded; cancelled orders are excluded so we don't recommend
