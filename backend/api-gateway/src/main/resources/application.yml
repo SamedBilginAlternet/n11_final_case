@@ -37,7 +37,7 @@ spring:
         - id: cart
           uri: ${CART_SERVICE_URL:http://localhost:8083}
           predicates:
-            - Path=/api/cart/**,/api/wishlist/**
+            - Path=/api/cart/**,/api/wishlist/**,/api/coupons/**
 
         - id: orders
           uri: ${ORDER_SERVICE_URL:http://localhost:8084}
