@@ -3,6 +3,7 @@ import { useParams } from 'react-router-dom';
 import { api } from '../api/client.js';
 import { useCart } from '../state/CartContext.jsx';
 import RatingStars from '../components/product/RatingStars.jsx';
+import RecommendationStrip from '../components/product/RecommendationStrip.jsx';
 import ReviewsSection from '../components/product/ReviewsSection.jsx';
 import { formatCurrency } from '../utils/format.js';
 
@@ -92,6 +93,8 @@ export default function ProductDetailPage() {
         </div>
       </div>
     </div>
+
+    <RecommendationStrip productId={product.id} />
 
     <ReviewsSection productId={product.id} onAggregateChange={refreshAggregate} />
     </div>
