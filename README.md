@@ -61,6 +61,8 @@ Detaylı diyagram: [`docs/architecture.md`](docs/architecture.md).
 | **payment-service** | 8085 | `paymentdb` | `OrderCreated` consumer, Iyzico, `Payment*` publisher |
 | **chatbot-service** | 8087 | `chatbotdb` | `POST /api/chat` — Groq / Claude provider, oturum geçmişi, ürün katalog grounding |
 | **notification-service** | 8086 | `notificationdb` | RabbitMQ event dinler (`order.confirmed`, `order.shipped`, `order.delivered`) → Thymeleaf template ile mail dispatcher (MailHog ↔ Resend) |
+| **frontend** | 3000 | — | Public storefront — React 18 + Vite + Tailwind, ürün listesi/detay, sepet, sipariş takibi |
+| **frontend-admin** | 3001 | — | Back-office paneli — ayrı React projesi (`frontend-admin/`), sipariş lifecycle yönetimi + ürün CRUD, sadece ADMIN rolü |
 
 Her servis kendi `pom.xml`'i, kendi Flyway migration set'i ve kendi DB'si ile bağımsız
 olarak deploy edilebilir.
@@ -283,6 +285,52 @@ ideal.
 
 Aynı `notification-service` image'i her iki ortamda çalışır; kod değil
 sadece env değişiyor.
+
+### Admin Paneli
+
+Storefront'tan ayrı, kendi container'ı olan back-office SPA'sı:
+**`frontend-admin/`** — `localhost:3001` (compose) veya
+`http://admin.<domain>` (prod, Caddy ile yönlendirilebilir).
+
+| Tema | Storefront | Admin |
+|---|---|---|
+| Renk paleti | Pembe (`n11-pink`) | İndigo + slate (`brand-*`) |
+| LocalStorage namespace | `n11.token`, `n11.user` | `n11.admin.token`, `n11.admin.user` |
+| Erişim | Herkese açık | Yalnızca `role=ADMIN` (login sırasında client-side reject + her endpoint'te `@PreAuthorize`) |
+
+İki tab aynı tarayıcıda açıkken birbirinin oturumunu ezmez (farklı LS
+key'leri), iki tema da görsel olarak net ayrılır.
+
+**Sayfalar:**
+- `/login` — sadece ADMIN kullanıcılar geçebilir; USER login'i `"Bu hesap admin yetkisine sahip değil"` toast'u ile reddedilir
+- `/` — kısayol kartları (siparişler, ürünler, kuponlar)
+- `/orders` — tüm kullanıcıların siparişleri (`GET /api/orders/admin?status=...`), durum filtre chip'leri, "Detay" drawer'ı + lifecycle aksiyonları:
+  - **Hazırlamaya Başla** (`POST /processing`) — saga event yok, sadece durum değişir
+  - **Kargoya Ver** (`POST /shipped`, kargo firması + takip no modal'ı) — `OrderShippedEvent` → notification-service → kargo maili
+  - **Teslim Edildi** (`POST /delivered`) — `OrderDeliveredEvent` → teslimat maili
+- `/products` — ürün CRUD (`POST/PUT/DELETE /api/products`), 250 ms debounced search, kategori dropdown, otomatik slug üretimi, görsel preview, silme onayı
+- `/coupons` — placeholder (yakında)
+
+**Admin kullanıcı oluşturma:**
+İlk admin'i seed ile veya elle yarat (auth-service DB'sine):
+```sql
+-- authdb
+UPDATE users SET role = 'ADMIN' WHERE email = 'samed@example.com';
+```
+Mevcut bir kullanıcıyı admin yapar; sonra normal `/api/auth/login` ile gir → JWT'de `role: ADMIN` claim'i gelir → admin paneline geçer.
+
+**Geliştirme:**
+```bash
+cd frontend-admin
+npm install
+npm run dev   # http://localhost:3001 — Vite proxy /api → gateway:8080
+```
+
+**Docker:**
+`docker compose up frontend-admin` — nginx ile build edilmiş statik
+artifakt servisi.  CORS gerektirmiyor (kendi nginx'i `/api/*`'ı içeride
+proxy'liyor); cross-origin Vite dev'i için `CORS_ALLOWED_ORIGINS`
+gateway env'inde zaten `http://localhost:3001` listelendi.
 
 ### Kampanya & Kupon Motoru
 
