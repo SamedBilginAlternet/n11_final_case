@@ -60,6 +60,7 @@ Detaylı diyagram: [`docs/architecture.md`](docs/architecture.md).
 | **order-service** | 8084 | `orderdb` | Checkout (snapshot shipping address) + lifecycle state machine (CONFIRMED → PROCESSING → SHIPPED → DELIVERED) + saga publisher |
 | **payment-service** | 8085 | `paymentdb` | `OrderCreated` consumer, Iyzico, `Payment*` publisher |
 | **chatbot-service** | 8087 | `chatbotdb` | `POST /api/chat` — Groq / Claude provider, oturum geçmişi, ürün katalog grounding |
+| **notification-service** | 8086 | `notificationdb` | RabbitMQ event dinler (`order.confirmed`, `order.shipped`, `order.delivered`) → Thymeleaf template ile mail dispatcher (MailHog ↔ Resend) |
 
 Her servis kendi `pom.xml`'i, kendi Flyway migration set'i ve kendi DB'si ile bağımsız
 olarak deploy edilebilir.
@@ -69,9 +70,12 @@ olarak deploy edilebilir.
 İki choreography saga var (Slack runtime bildirimi yok — Slack sadece CI deploy için):
 
 1. **CheckoutSaga (mutluyolcu)** — `order.created` → ödeme → `payment.succeeded` →
-   `order.confirmed` → cart-service sepeti temizler.
+   `order.confirmed` → cart-service sepeti temizler + notification-service onay maili atar.
 2. **CheckoutSaga (compensation)** — ödeme reddedildiğinde `payment.failed` →
    `order.cancelled`; sipariş `CANCELLED` durumuna düşer ve müşteri tekrar deneyebilir.
+3. **Lifecycle bildirimleri** — admin sipariş durumunu `SHIPPED` veya `DELIVERED`
+   yaptığında order-service `order.shipped` / `order.delivered` event'lerini
+   yayınlar; notification-service sırayla kargo + teslimat mailini atar.
 
 ASCII waterfall + idempotency notları: [`docs/saga.md`](docs/saga.md).
 
@@ -226,6 +230,59 @@ docker compose up --build
 4. Auth-service kendi mevcut HS256 JWT'sini issue eder
 5. Tarayıcı `${FRONTEND_BASE_URL}/auth/callback#token=...&refreshToken=...`'a yönlendirilir (her iki token URL fragment'ında — server log'larında değil)
 6. Frontend `/auth/callback` route'u tokenları yakalar → `/api/users/me` ile kullanıcıyı çeker → ana sayfaya gider; access süresi dolduğunda axios interceptor `/api/auth/refresh` ile yeni access + rotated refresh alır
+
+### Mail Bildirimleri
+
+`notification-service` (port 8086) RabbitMQ üzerinden sipariş yaşam döngüsü
+event'lerini dinler ve müşteriye Türkçe Thymeleaf template'leri ile mail atar:
+
+| Event | Routing key | Tetikleyici | Template |
+|---|---|---|---|
+| `OrderConfirmedEvent` | `order.confirmed` | Ödeme onaylandığında (saga) | `order-confirmed.html` (pembe-mor) |
+| `OrderShippedEvent` | `order.shipped` | Admin `POST /api/orders/{id}/shipped` | `order-shipped.html` (mavi, kargo + tracking no) |
+| `OrderDeliveredEvent` | `order.delivered` | Admin `POST /api/orders/{id}/delivered` | `order-delivered.html` (yeşil, yorum çağrısı) |
+
+**Idempotency**: `notifications` tablosunda `UNIQUE(order_id, kind)`.
+RabbitMQ aynı mesajı redeliver ederse audit insert constraint'e takılır →
+sessizce skip → çift mail gönderilmez.
+
+**DLX**: Her primary queue'nun yanında `*.dlq` parking-lot var. Mail
+gönderimi kalıcı hata verirse listener nack atar, mesaj DLX'e düşer ve
+RabbitMQ Management UI'dan elle inceleme/replay yapılabilir.
+
+#### Local development — MailHog (signup yok)
+
+`docker compose up` MailHog'u 1025 (SMTP) + 8025 (web UI) portlarında
+ayağa kaldırır. Notification-service default'ta MailHog'a yazar.
+Bir checkout yapıp web UI'yı (`http://localhost:8025`) açtığında onay
+mailini canlı görürsün — gerçek dünyaya hiçbir mail gitmez, demo/dev için
+ideal.
+
+#### Production — Resend (kendi domain'inle gerçek mail)
+
+1. **Domain ekle**: [resend.com](https://resend.com) dashboard → **Domains** → **Add Domain** → `send.samedbilgin.com` (kendi apex'ini reputation'dan korumak için subdomain önerilir; MX gerekmez)
+2. Resend'in verdiği DNS kayıtlarını ekle (DNS provider'ında):
+   - SPF (TXT): `v=spf1 include:_spf.resend.com ~all`
+   - DKIM (TXT, üç kayıt): Resend dashboard'da kopyala-yapıştır
+   - DMARC (opsiyonel): `v=DMARC1; p=none; rua=mailto:postmaster@samedbilgin.com`
+3. 5–30 dk DNS propagation, **Verify** → yeşil tik
+4. **API key** üret: dashboard → API Keys → Full access scope
+5. `.env`'e ekle:
+   ```bash
+   SMTP_HOST=smtp.resend.com
+   SMTP_PORT=587
+   SMTP_USERNAME=resend
+   SMTP_PASSWORD=re_xxxxxxxxxxxxxxxx     # API key as password
+   SMTP_AUTH=true
+   SMTP_STARTTLS=true
+   MAIL_FROM_ADDRESS=no-reply@send.samedbilgin.com
+   MAIL_FROM_NAME=n11 Sipariş
+   ```
+6. Production compose default'ta zaten Resend ayarlı —
+   sadece bu env'leri `.env`'e koy, deploy et.
+
+Aynı `notification-service` image'i her iki ortamda çalışır; kod değil
+sadece env değişiyor.
 
 ### Kampanya & Kupon Motoru
 
