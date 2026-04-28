@@ -43,6 +43,10 @@ public class SecurityConfig {
                 .httpBasic(b -> b.disable())
                 .sessionManagement(s -> s.sessionCreationPolicy(SessionCreationPolicy.STATELESS))
                 .authorizeHttpRequests(auth -> auth
+                        // Admin metrics: require auth; @PreAuthorize on controller
+                        // gates ADMIN.  Listed BEFORE the public GET matcher so
+                        // it isn't shadowed by /api/products/** permitAll.
+                        .requestMatchers(HttpMethod.GET, "/api/products/admin/**").authenticated()
                         .requestMatchers(HttpMethod.GET, "/api/products/**", "/api/categories/**").permitAll()
                         .requestMatchers(HttpMethod.PUT, "/api/products/*/reviews/**").authenticated()
                         .requestMatchers(HttpMethod.DELETE, "/api/products/*/reviews/**").authenticated()

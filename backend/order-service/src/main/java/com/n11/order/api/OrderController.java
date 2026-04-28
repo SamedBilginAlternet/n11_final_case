@@ -1,6 +1,8 @@
 package com.n11.order.api;
 
 import com.n11.common.security.AuthenticatedUser;
+import com.n11.order.api.admin.OrderMetricsDto;
+import com.n11.order.api.admin.OrderMetricsService;
 import com.n11.order.api.dto.OrderDto;
 import com.n11.order.api.mapper.OrderMapper;
 import com.n11.order.domain.OrderStatus;
@@ -31,6 +33,7 @@ public class OrderController {
 
     private final CheckoutService checkoutService;
     private final OrderStatusService statusService;
+    private final OrderMetricsService metricsService;
     private final OrderRepository repository;
     private final OrderMapper mapper;
 
@@ -64,6 +67,13 @@ public class OrderController {
     public List<OrderDto> adminList(@RequestParam(required = false) OrderStatus status,
                                     @PageableDefault(size = 20) Pageable pageable) {
         return repository.findAllByOptionalStatus(status, pageable).map(mapper::toDto).getContent();
+    }
+
+    @Operation(summary = "Admin — dashboard metrics (last N days, defaults 30)")
+    @PreAuthorize("hasRole('ADMIN')")
+    @GetMapping("/admin/metrics")
+    public OrderMetricsDto adminMetrics(@RequestParam(defaultValue = "30") int days) {
+        return metricsService.compute(days);
     }
 
     @Operation(summary = "Admin — get any order by id (no user-scoped guard)")
