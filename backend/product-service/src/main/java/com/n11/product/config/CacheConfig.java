@@ -15,6 +15,7 @@ import org.springframework.data.redis.serializer.RedisSerializationContext;
 import org.springframework.data.redis.serializer.StringRedisSerializer;
 
 import java.time.Duration;
+import java.util.LinkedHashMap;
 import java.util.Map;
 
 /**
@@ -48,12 +49,15 @@ public class CacheConfig {
     @Bean
     public RedisCacheManager cacheManager(RedisConnectionFactory connectionFactory) {
         RedisCacheConfiguration base = baseConfig(Duration.ofMinutes(5));
-        Map<String, RedisCacheConfiguration> perCache = Map.of(
-                "categories", base.entryTtl(Duration.ofHours(1)),
-                "products:byId", base.entryTtl(Duration.ofMinutes(5)),
-                "products:bySlug", base.entryTtl(Duration.ofMinutes(5)),
-                "products:autocomplete", base.entryTtl(Duration.ofMinutes(1))
-        );
+        Map<String, RedisCacheConfiguration> perCache = new LinkedHashMap<>();
+        perCache.put("categories", base.entryTtl(Duration.ofHours(1)));
+        perCache.put("products:byId", base.entryTtl(Duration.ofMinutes(5)));
+        perCache.put("products:bySlug", base.entryTtl(Duration.ofMinutes(5)));
+        perCache.put("products:autocomplete", base.entryTtl(Duration.ofMinutes(1)));
+        // Recommendation strip: 5 minute window is short enough that price /
+        // stock changes propagate to the AI explanations on the next miss,
+        // long enough that a popular product page hits redis 99% of the time.
+        perCache.put("recommendations", base.entryTtl(Duration.ofMinutes(5)));
         return RedisCacheManager.builder(connectionFactory)
                 .cacheDefaults(base)
                 .withInitialCacheConfigurations(perCache)

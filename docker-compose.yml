@@ -132,6 +132,12 @@ services:
       SERVER_PORT: 8082
       POSTGRES_DB: productdb
       JWT_SECRET: ${JWT_SECRET:-changeme-32-byte-min-secret-changeme-please-rotate}
+      # Recommendation strip — Groq llama-3.1-8b-instant for re-ranking +
+      # one-sentence Turkish "neden" explanations.  Empty key disables the
+      # AI step; the SQL candidates still ship without subtitles.
+      GROQ_API_KEY: ${GROQ_API_KEY:-}
+      GROQ_RECOMMENDATIONS_MODEL: ${GROQ_RECOMMENDATIONS_MODEL:-llama-3.1-8b-instant}
+      ORDER_SERVICE_URL: http://order-service:8084
     ports: ["8082:8082"]
 
   cart-service:

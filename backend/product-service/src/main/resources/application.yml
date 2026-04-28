@@ -62,6 +62,21 @@ n11:
   jwt:
     secret: ${JWT_SECRET:dev-only-please-change-32-byte-secret-1234567890}
     issuer: n11-auth
+  recommendations:
+    enabled: ${RECOMMENDATIONS_ENABLED:true}
+    groq:
+      # Free tier rate-limited to ~30 req/min on the 8b-instant model.  With
+      # the 5-minute Redis cache on /recommendations a popular product can
+      # absorb ~3000 visits/hr on a single Groq call.
+      api-key: ${GROQ_API_KEY:}
+      base-url: ${GROQ_BASE_URL:https://api.groq.com}
+      model: ${GROQ_RECOMMENDATIONS_MODEL:llama-3.1-8b-instant}
+      max-tokens: 600
+      temperature: 0.4
+      timeout-seconds: 8
+    order-service:
+      base-url: ${ORDER_SERVICE_URL:http://localhost:8084}
+      timeout-seconds: 3
 
 logging:
   pattern:

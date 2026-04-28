@@ -28,4 +28,16 @@ public interface ProductRepository extends JpaRepository<Product, Long> {
             order by p.ratingCount desc
            """)
     List<Product> autocomplete(String q, Pageable pageable);
+
+    /**
+     * Top-rated products in a category, excluding one id (typically the
+     * seed product on the recommendation strip).
+     */
+    @Query("""
+            select p from Product p
+            where p.category.id = :categoryId
+              and p.id <> :excludeId
+            order by p.ratingAverage desc, p.ratingCount desc
+            """)
+    List<Product> topRatedInCategory(Long categoryId, Long excludeId, Pageable pageable);
 }
