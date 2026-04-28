@@ -194,17 +194,16 @@ IYZICO_BASE_URL=https://sandbox-api.iyzipay.com \
 docker compose up --build
 ```
 
-### Sosyal Giriş (Google / GitHub)
+### Sosyal Giriş (Google)
 
-Varsayılan olarak iki provider de **kapalı** — sadece e-posta + şifre login çalışır. Açmak için
-provider başına client-id/secret ekleyin; Spring Security yalnızca dolu olanları aktive eder.
+Varsayılan olarak provider **kapalı** — sadece e-posta + şifre login çalışır. Açmak için
+client-id/secret ekleyin; Spring Security yalnızca dolu olduğunda aktive eder.
 
-**1. OAuth uygulamalarını oluşturun**
+**1. OAuth uygulamasını oluşturun**
 
 | Provider | Konsol | Authorized redirect URI |
 |---|---|---|
 | Google | [console.cloud.google.com](https://console.cloud.google.com) → APIs & Services → Credentials → OAuth 2.0 Client | `${PUBLIC_HOST}/api/auth/oauth2/callback/google` |
-| GitHub | Settings → Developer settings → OAuth Apps → New OAuth App | `${PUBLIC_HOST}/api/auth/oauth2/callback/github` |
 
 `PUBLIC_HOST` değişkeni:
 - Local docker-compose: `http://localhost:8080`
@@ -216,8 +215,6 @@ provider başına client-id/secret ekleyin; Spring Security yalnızca dolu olanl
 FRONTEND_BASE_URL=http://localhost:3000      # prod'da https://yourdomain.com
 GOOGLE_CLIENT_ID=...
 GOOGLE_CLIENT_SECRET=...
-GITHUB_CLIENT_ID=...
-GITHUB_CLIENT_SECRET=...
 docker compose up --build
 ```
 
@@ -229,8 +226,6 @@ docker compose up --build
 4. Auth-service kendi mevcut HS256 JWT'sini issue eder
 5. Tarayıcı `${FRONTEND_BASE_URL}/auth/callback#token=...&refreshToken=...`'a yönlendirilir (her iki token URL fragment'ında — server log'larında değil)
 6. Frontend `/auth/callback` route'u tokenları yakalar → `/api/users/me` ile kullanıcıyı çeker → ana sayfaya gider; access süresi dolduğunda axios interceptor `/api/auth/refresh` ile yeni access + rotated refresh alır
-
-GitHub'ın `email` alanı public değilse `user:email` scope'u ile `/user/emails`'tan birincil verified e-posta otomatik çekilir (`GitHubEmailAwareUserService`).
 
 ### Kampanya & Kupon Motoru
 

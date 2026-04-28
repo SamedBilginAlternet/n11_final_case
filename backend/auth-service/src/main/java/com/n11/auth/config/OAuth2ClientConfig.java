@@ -27,15 +27,6 @@ public class OAuth2ClientConfig {
                     .build());
         }
 
-        if (props.githubEnabled()) {
-            registrations.add(CommonOAuth2Provider.GITHUB.getBuilder("github")
-                    .clientId(props.github().clientId())
-                    .clientSecret(props.github().clientSecret())
-                    .scope("read:user", "user:email")
-                    .redirectUri("{baseUrl}/api/auth/oauth2/callback/{registrationId}")
-                    .build());
-        }
-
         if (registrations.isEmpty()) {
             return registrationId -> null;
         }

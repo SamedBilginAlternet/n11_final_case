@@ -7,8 +7,7 @@ public record SocialLoginProperties(
         String frontendBaseUrl,
         String successPath,
         String failurePath,
-        Provider google,
-        Provider github
+        Provider google
 ) {
 
     public SocialLoginProperties {
@@ -16,19 +15,14 @@ public record SocialLoginProperties(
         if (successPath == null || successPath.isBlank()) successPath = "/auth/callback";
         if (failurePath == null || failurePath.isBlank()) failurePath = "/login";
         if (google == null) google = new Provider(null, null);
-        if (github == null) github = new Provider(null, null);
     }
 
     public boolean googleEnabled() {
         return google != null && google.clientId != null && !google.clientId.isBlank();
     }
 
-    public boolean githubEnabled() {
-        return github != null && github.clientId != null && !github.clientId.isBlank();
-    }
-
     public boolean anyEnabled() {
-        return googleEnabled() || githubEnabled();
+        return googleEnabled();
     }
 
     public record Provider(String clientId, String clientSecret) {}

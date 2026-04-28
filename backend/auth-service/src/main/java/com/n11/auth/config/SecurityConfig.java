@@ -1,6 +1,5 @@
 package com.n11.auth.config;
 
-import com.n11.auth.security.GitHubEmailAwareUserService;
 import com.n11.auth.security.OAuth2LoginFailureHandler;
 import com.n11.auth.security.OAuth2LoginSuccessHandler;
 import com.n11.common.security.JwtAuthenticationFilter;
@@ -26,7 +25,6 @@ public class SecurityConfig {
     private final SocialLoginProperties socialLoginProperties;
     private final OAuth2LoginSuccessHandler oAuth2LoginSuccessHandler;
     private final OAuth2LoginFailureHandler oAuth2LoginFailureHandler;
-    private final GitHubEmailAwareUserService gitHubEmailAwareUserService;
 
     @Bean
     public PasswordEncoder passwordEncoder() {
@@ -90,7 +88,6 @@ public class SecurityConfig {
             http.oauth2Login(oauth -> oauth
                     .authorizationEndpoint(a -> a.baseUri("/api/auth/oauth2/authorize"))
                     .redirectionEndpoint(r -> r.baseUri("/api/auth/oauth2/callback/*"))
-                    .userInfoEndpoint(u -> u.userService(gitHubEmailAwareUserService))
                     .successHandler(oAuth2LoginSuccessHandler)
                     .failureHandler(oAuth2LoginFailureHandler)
             );

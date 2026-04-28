@@ -69,9 +69,7 @@ public class OAuth2LoginSuccessHandler implements AuthenticationSuccessHandler {
     }
 
     private String subjectFor(String registrationId, OAuth2User principal) {
-        Object raw = "github".equals(registrationId)
-                ? principal.getAttribute("id")
-                : principal.getAttribute("sub");
+        Object raw = principal.getAttribute("sub");
         return raw == null ? null : String.valueOf(raw);
     }
 

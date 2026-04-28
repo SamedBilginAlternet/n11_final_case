@@ -316,10 +316,9 @@ auth-service/src/main/java/com/n11/auth/
 ├── service/SocialLoginService.java               # OAuth user upsert + link-by-email
 ├── security/JwtTokenProvider.java                # issue() + parse() (issue burada tek)
 ├── security/OAuth2LoginSuccessHandler.java       # JWT + refresh mint + frontend redirect
-├── security/GitHubEmailAwareUserService.java     # /user/emails fallback
 ├── config/SecurityConfig.java                    # JWT chain + login rate limit + oauth2Login conditional
 ├── config/JwtProperties.java                     # n11.jwt.{secret, issuer, accessTtlMinutes, refreshTtlDays}
-└── config/SocialLoginProperties.java             # n11.social-login.{google, github, frontendBaseUrl}
+└── config/SocialLoginProperties.java             # n11.social-login.{google, frontendBaseUrl}
 ```
 
 ### 3.4 `product-service`
