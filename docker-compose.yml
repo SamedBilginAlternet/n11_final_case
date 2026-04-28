@@ -269,6 +269,10 @@ services:
       ORDER_SERVICE_URL: http://order-service:8084
       PAYMENT_SERVICE_URL: http://payment-service:8085
       CHATBOT_SERVICE_URL: http://chatbot-service:8087
+      # CORS: storefront on :3000, admin panel on :3001.  Both nginx
+      # wrappers proxy /api locally so this list mostly matters for
+      # `npm run dev` flows where Vite serves on a different origin.
+      CORS_ALLOWED_ORIGINS: ${CORS_ALLOWED_ORIGINS:-http://localhost:3000,http://localhost:3001,http://localhost:5173,http://localhost:5174}
     ports: ["8080:8080"]
 
   frontend:
@@ -280,6 +284,19 @@ services:
     depends_on:
       api-gateway: { condition: service_started }
     ports: ["3000:80"]
+
+  frontend-admin:
+    build:
+      context: ./frontend-admin
+      # Empty baseURL → axios uses same-origin paths; nginx proxies /api/*
+      # to the gateway internally, so admin → gateway hop never crosses
+      # an external origin even when running on a separate port.
+      args:
+        VITE_API_BASE_URL: ""
+    image: n11/frontend-admin:1.0.0
+    depends_on:
+      api-gateway: { condition: service_started }
+    ports: ["3001:80"]
 
 volumes:
   n11_pgdata:

@@ -211,10 +211,21 @@ services:
       ORDER_SERVICE_URL: http://order-service:8084
       PAYMENT_SERVICE_URL: http://payment-service:8085
       CHATBOT_SERVICE_URL: http://chatbot-service:8087
+      # Comma-separated origins.  In a Caddy-fronted prod setup admin
+      # usually lives at https://admin.yourdomain.com and storefront at
+      # https://yourdomain.com — set CORS_ALLOWED_ORIGINS in .env to
+      # match both, otherwise gateway rejects every preflight.
+      CORS_ALLOWED_ORIGINS: ${CORS_ALLOWED_ORIGINS}
     restart: unless-stopped
 
   frontend:
     image: ghcr.io/${GHCR_OWNER}/frontend:${IMAGE_TAG:-latest}
+    depends_on:
+      api-gateway: { condition: service_started }
+    restart: unless-stopped
+
+  frontend-admin:
+    image: ghcr.io/${GHCR_OWNER}/frontend-admin:${IMAGE_TAG:-latest}
     depends_on:
       api-gateway: { condition: service_started }
     restart: unless-stopped
@@ -224,6 +235,7 @@ services:
     depends_on:
       api-gateway: { condition: service_started }
       frontend: { condition: service_started }
+      frontend-admin: { condition: service_started }
     ports:
       - "80:80"
       - "443:443"

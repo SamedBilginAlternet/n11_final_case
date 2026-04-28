@@ -110,6 +110,21 @@ jobs:
           docker push ghcr.io/${OWNER_LC}/frontend:${IMAGE_TAG}
           docker push ghcr.io/${OWNER_LC}/frontend:latest
 
+      - name: Build & push frontend-admin image
+        working-directory: frontend-admin
+        env:
+          OWNER_LC: ${{ github.repository_owner }}
+          IMAGE_TAG: ${{ steps.meta.outputs.image_tag }}
+        run: |
+          OWNER_LC=$(echo "$OWNER_LC" | tr '[:upper:]' '[:lower:]')
+          # Empty VITE_API_BASE_URL → axios calls land on same-origin
+          # /api/*, which the admin's nginx wrapper proxies to gateway.
+          docker build --build-arg VITE_API_BASE_URL= \
+            -t ghcr.io/${OWNER_LC}/frontend-admin:${IMAGE_TAG} \
+            -t ghcr.io/${OWNER_LC}/frontend-admin:latest .
+          docker push ghcr.io/${OWNER_LC}/frontend-admin:${IMAGE_TAG}
+          docker push ghcr.io/${OWNER_LC}/frontend-admin:latest
+
   deploy-droplet:
     name: Deploy to DigitalOcean droplet
     needs: build-images
