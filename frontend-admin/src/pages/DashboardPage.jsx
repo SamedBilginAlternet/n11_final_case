@@ -1,18 +1,20 @@
 import { Link } from 'react-router-dom';
-import { ShoppingBag, Package, Tags, ArrowUpRight } from 'lucide-react';
+import { ShoppingBag, Package, Tags, FolderTree, Users, ArrowUpRight } from 'lucide-react';
 
 export default function DashboardPage() {
   return (
     <div className="space-y-6">
       <div>
         <h1 className="text-2xl font-bold tracking-tight">Anasayfa</h1>
-        <p className="text-sm text-slate-500">Buradan sipariş, ürün ve kupon yönetimi sayfalarına geçebilirsin.</p>
+        <p className="text-sm text-slate-500">Yönetim sayfalarına geçmek için kart seç.</p>
       </div>
 
-      <div className="grid gap-4 sm:grid-cols-3">
+      <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
         <ShortcutCard to="/orders" icon={ShoppingBag} title="Siparişler" subtitle="Lifecycle yönetimi + kargo" />
         <ShortcutCard to="/products" icon={Package} title="Ürünler" subtitle="Katalog CRUD" />
-        <ShortcutCard to="/coupons" icon={Tags} title="Kuponlar" subtitle="Kampanya & indirim" />
+        <ShortcutCard to="/categories" icon={FolderTree} title="Kategoriler" subtitle="Ürün hiyerarşisi" />
+        <ShortcutCard to="/coupons" icon={Tags} title="Kuponlar" subtitle="Yüzde + sabit indirim" />
+        <ShortcutCard to="/users" icon={Users} title="Kullanıcılar" subtitle="Rol yönetimi" />
       </div>
     </div>
   );

@@ -1,5 +1,5 @@
 import { NavLink, Outlet, useNavigate } from 'react-router-dom';
-import { LayoutDashboard, Package, ShoppingBag, Tags, LogOut, Sparkles } from 'lucide-react';
+import { LayoutDashboard, Package, ShoppingBag, Tags, LogOut, Sparkles, FolderTree, Users } from 'lucide-react';
 import clsx from 'clsx';
 import { useAuth } from '../state/AuthContext.jsx';
 
@@ -29,7 +29,9 @@ export default function AdminLayout() {
           <NavItem to="/" icon={LayoutDashboard} label="Anasayfa" end />
           <NavItem to="/orders" icon={ShoppingBag} label="Siparişler" />
           <NavItem to="/products" icon={Package} label="Ürünler" />
+          <NavItem to="/categories" icon={FolderTree} label="Kategoriler" />
           <NavItem to="/coupons" icon={Tags} label="Kuponlar" />
+          <NavItem to="/users" icon={Users} label="Kullanıcılar" />
         </nav>
 
         <div className="mt-auto rounded-md border border-slate-200 bg-slate-50 p-3 text-xs">
