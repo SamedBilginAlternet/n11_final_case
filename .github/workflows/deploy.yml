@@ -62,12 +62,38 @@ jobs:
           IMAGE_TAG: ${{ steps.meta.outputs.image_tag }}
         run: |
           OWNER_LC=$(echo "$OWNER_LC" | tr '[:upper:]' '[:lower:]')
-          for svc in api-gateway auth-service product-service cart-service order-service payment-service chatbot-service; do
+
+          # GHCR occasionally returns 404 BLOB_UPLOAD_UNKNOWN when jib's
+          # parallel layer chunks race against the registry's upload tracking.
+          # -Djib.serialize=true forces sequential layer uploads (slower but
+          # eliminates the race); a 3-attempt retry mops up any remaining
+          # transient flakes.  -Djib.httpTimeout bumps the default 20s to 60s
+          # so a slow GHCR response doesn't make jib reopen the upload.
+          jib_push() {
+            local svc=$1
+            local attempt=1
+            local max_attempts=3
+            while [ $attempt -le $max_attempts ]; do
+              if mvn -B -DskipTests -pl "$svc" \
+                  -Djib.to.image=ghcr.io/${OWNER_LC}/${svc}:${IMAGE_TAG} \
+                  -Djib.to.tags=latest \
+                  -Djib.serialize=true \
+                  -Djib.httpTimeout=60000 \
+                  -Djib.console=plain \
+                  jib:build; then
+                return 0
+              fi
+              echo "::warning::jib:build failed for $svc (attempt $attempt/$max_attempts), retrying in 15s..."
+              attempt=$((attempt+1))
+              sleep 15
+            done
+            echo "::error::jib:build failed for $svc after $max_attempts attempts"
+            return 1
+          }
+
+          for svc in api-gateway auth-service product-service cart-service order-service payment-service chatbot-service notification-service; do
             echo "::group::Jib build $svc"
-            mvn -B -DskipTests -pl "$svc" \
-              -Djib.to.image=ghcr.io/${OWNER_LC}/${svc}:${IMAGE_TAG} \
-              -Djib.to.tags=latest \
-              jib:build
+            jib_push "$svc"
             echo "::endgroup::"
           done
 
