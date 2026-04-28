@@ -27,6 +27,7 @@ jobs:
           - order-service
           - payment-service
           - chatbot-service
+          - notification-service
     steps:
       - uses: actions/checkout@v4
 

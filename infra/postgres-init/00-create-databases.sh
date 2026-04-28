@@ -1,7 +1,7 @@
 #!/usr/bin/env bash
 set -euo pipefail
 
-DATABASES=(authdb productdb cartdb orderdb paymentdb chatbotdb)
+DATABASES=(authdb productdb cartdb orderdb paymentdb chatbotdb notificationdb)
 
 for DB in "${DATABASES[@]}"; do
   echo "Creating database $DB"
