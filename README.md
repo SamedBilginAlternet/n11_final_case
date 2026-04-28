@@ -30,11 +30,28 @@ deploy boru hattı (her deploy'da Slack bildirimi).
 - [Deployment](#deployment)
 - [Klasör Yapısı](#klasör-yapısı)
 
-> Detaylı dokümantasyon `docs/` altındadır:
+> Detaylı dokümantasyon `docs/` altındadır — [`docs/README.md`](docs/README.md) ile başla.
+>
+> **Yüksek seviye:**
 > - [`docs/architecture.md`](docs/architecture.md) — mimari diyagram + tasarım kararları
+> - [`docs/developer-guide.md`](docs/developer-guide.md) — felsefe + tüm "neden" ler
 > - [`docs/saga.md`](docs/saga.md) — saga waterfall, compensation, idempotency
+>
+> **Topical (cross-cutting konseptler):**
+> - [`docs/messaging.md`](docs/messaging.md) — RabbitMQ topology, DLX, idempotency, publish-after-commit
+> - [`docs/security.md`](docs/security.md) — JWT, refresh rotation + reuse detection, role-based access
+> - [`docs/caching.md`](docs/caching.md) — Redis namespace, TTL, eviction
+> - [`docs/search.md`](docs/search.md) — PostgreSQL FTS + faceted filter
+> - [`docs/recommendations.md`](docs/recommendations.md) — Co-purchase + Groq pipeline
+> - [`docs/observability.md`](docs/observability.md) — Correlation ID + tracing + metrics
+>
+> **Per-service deep-dives** ([`docs/services/`](docs/services/)):
+> - [api-gateway](docs/services/api-gateway.md) · [auth](docs/services/auth-service.md) · [product](docs/services/product-service.md) · [cart](docs/services/cart-service.md) · [order](docs/services/order-service.md) · [payment](docs/services/payment-service.md) · [notification](docs/services/notification-service.md) · [chatbot](docs/services/chatbot-service.md) · [common](docs/services/common.md)
+> - [frontend](docs/services/frontend.md) · [frontend-admin](docs/services/frontend-admin.md)
+>
+> **Operasyon:**
 > - [`docs/cicd.md`](docs/cicd.md) — GitHub Actions ↔ Jenkins karşılaştırması
-> - [`docs/deployment.md`](docs/deployment.md) — DigitalOcean droplet playbook (free-tier friendly, ücretsiz Groq AI ile)
+> - [`docs/deployment.md`](docs/deployment.md) — DigitalOcean droplet playbook
 
 ## Mimari
 

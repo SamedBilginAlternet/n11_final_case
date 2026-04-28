@@ -7,6 +7,15 @@ ve bir özelliği değiştirirken **hangi kuralları korumak zorundasın**.
 Yeni başlayan biri için sıralı okuma: bölüm 1 → 2 → 3. Belirli bir servise odaklanan biri için:
 [Servisler](#3-servisler-deep-dive) bölümünden ilgili alt başlığı.
 
+> **Not:** Bu doküman **yüksek seviye + tarihsel** (proje başından beri var). Per-service
+> derinlemesine guide'lar [`services/`](services/) altında, topical konseptler kendi dosyalarında:
+>
+> - **Topical:** [`messaging.md`](messaging.md), [`security.md`](security.md), [`caching.md`](caching.md), [`search.md`](search.md), [`recommendations.md`](recommendations.md), [`observability.md`](observability.md)
+> - **Per-service:** [`services/README.md`](services/README.md) — index, hangi servisin nerede ne yaptığı
+>
+> Bu doküman **mimari kararları bir arada** görmek için ideal. Implementasyon detayı için
+> per-service guide'ı oku.
+
 ---
 
 ## 0. İçindekiler
