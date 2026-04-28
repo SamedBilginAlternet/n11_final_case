@@ -167,6 +167,28 @@ services:
       PRODUCT_SERVICE_URL: http://product-service:8082
     restart: unless-stopped
 
+  notification-service:
+    image: ghcr.io/${GHCR_OWNER}/notification-service:${IMAGE_TAG:-latest}
+    depends_on:
+      postgres: { condition: service_healthy }
+      rabbitmq: { condition: service_healthy }
+    environment:
+      <<: [*postgres-env, *rabbitmq-env, *otel-env, *jvm-defaults]
+      SERVER_PORT: 8086
+      POSTGRES_DB: notificationdb
+      # Production points at Resend SMTP relay over STARTTLS.  Sender domain
+      # (send.samedbilgin.com) DKIM/SPF must be verified in the Resend dashboard.
+      SMTP_HOST: ${SMTP_HOST:-smtp.resend.com}
+      SMTP_PORT: ${SMTP_PORT:-587}
+      SMTP_USERNAME: ${SMTP_USERNAME:-resend}
+      SMTP_PASSWORD: ${SMTP_PASSWORD}
+      SMTP_AUTH: "true"
+      SMTP_STARTTLS: "true"
+      MAIL_FROM_ADDRESS: ${MAIL_FROM_ADDRESS}
+      MAIL_FROM_NAME: ${MAIL_FROM_NAME:-n11 Sipariş}
+      STOREFRONT_URL: ${STOREFRONT_URL}
+    restart: unless-stopped
+
   api-gateway:
     image: ghcr.io/${GHCR_OWNER}/api-gateway:${IMAGE_TAG:-latest}
     depends_on:
@@ -176,6 +198,7 @@ services:
       order-service: { condition: service_started }
       payment-service: { condition: service_started }
       chatbot-service: { condition: service_started }
+      notification-service: { condition: service_started }
     environment:
       <<: [*jvm-defaults, *otel-env]
       SERVER_PORT: 8080

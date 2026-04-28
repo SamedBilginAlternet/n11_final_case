@@ -83,6 +83,22 @@ services:
       - "16686:16686" # Jaeger UI
       - "4318:4318"   # OTLP HTTP receiver — services post spans here
 
+  # Catch-all SMTP server for local development.  Listens on 1025 and traps
+  # every outbound mail in a web UI on 8025 — nothing escapes to the real
+  # internet, so we can run notification-service exactly the way prod runs it
+  # without worrying about test users seeing throwaway mails.  Production
+  # swaps these env vars in notification-service to point at Resend/Brevo.
+  mailhog:
+    image: mailhog/mailhog:v1.0.1
+    ports:
+      - "1025:1025"   # SMTP intake — what notification-service speaks
+      - "8025:8025"   # Web UI — opens captured mails in the browser
+    healthcheck:
+      test: ["CMD", "wget", "-q", "--spider", "http://localhost:8025"]
+      interval: 10s
+      timeout: 3s
+      retries: 5
+
   auth-service:
     build:
       context: ./backend
@@ -197,6 +213,33 @@ services:
       PRODUCT_SERVICE_URL: http://product-service:8082
     ports: ["8087:8087"]
 
+  notification-service:
+    build:
+      context: ./backend
+      args:
+        SERVICE: notification-service
+    image: n11/notification-service:1.0.0
+    depends_on:
+      postgres: { condition: service_healthy }
+      rabbitmq: { condition: service_healthy }
+      mailhog:  { condition: service_healthy }
+    environment:
+      <<: [*postgres-env, *rabbitmq-env, *otel-env, *jvm-defaults]
+      SERVER_PORT: 8086
+      POSTGRES_DB: notificationdb
+      # Default to MailHog for local dev — overridden in prod via .env to
+      # point at Resend/Brevo (with SMTP_AUTH=true + SMTP_STARTTLS=true).
+      SMTP_HOST: ${SMTP_HOST:-mailhog}
+      SMTP_PORT: ${SMTP_PORT:-1025}
+      SMTP_USERNAME: ${SMTP_USERNAME:-}
+      SMTP_PASSWORD: ${SMTP_PASSWORD:-}
+      SMTP_AUTH: ${SMTP_AUTH:-false}
+      SMTP_STARTTLS: ${SMTP_STARTTLS:-false}
+      MAIL_FROM_ADDRESS: ${MAIL_FROM_ADDRESS:-no-reply@n11.local}
+      MAIL_FROM_NAME: ${MAIL_FROM_NAME:-n11 Sipariş}
+      STOREFRONT_URL: ${STOREFRONT_URL:-http://localhost:3000}
+    ports: ["8086:8086"]
+
   api-gateway:
     build:
       context: ./backend
@@ -210,6 +253,7 @@ services:
       order-service: { condition: service_started }
       payment-service: { condition: service_started }
       chatbot-service: { condition: service_started }
+      notification-service: { condition: service_started }
     environment:
       <<: [*jvm-defaults, *otel-env]
       SERVER_PORT: 8080
