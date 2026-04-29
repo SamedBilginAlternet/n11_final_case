@@ -501,7 +501,11 @@ JWT'yi kullanmak için Swagger'da "Authorize" → `Bearer <token>` olarak yapı�
 |---|---|---|
 | [`backend.yml`](.github/workflows/backend.yml) | `push`/`pr` (backend changes) | 8 modül için matrix `mvn verify` |
 | [`frontend.yml`](.github/workflows/frontend.yml) | `push`/`pr` (frontend changes) | npm ci → lint → vitest → vite build → dist artifact |
-| [`deploy.yml`](.github/workflows/deploy.yml) | `push main` veya `v*` tag | Jib + Docker → GHCR; SSH ile droplet'e deploy; **her run sonunda Slack bildirimi** |
+| [`deploy.yml`](.github/workflows/deploy.yml) | `push main` veya `v*` tag (md/docs hariç) | **Paralel matrix** Jib (8 backend) + buildx (2 frontend, GHA cache) → GHCR; SSH ile droplet'e deploy; **her run sonunda Slack bildirimi** |
+
+`deploy.yml` 8 backend servisini matrix ile paralel build eder; frontend +
+admin image'leri ayrı matrix'te buildx GHA cache ile basılır. Doc-only
+commit'ler `paths-ignore` ile pipeline'ı tetiklemez.
 
 Jenkins ile karşılaştırma: [`docs/cicd.md`](docs/cicd.md) — aynı pipeline'ın `Jenkinsfile`
 karşılığı + adım adım kavram eşleştirmesi.

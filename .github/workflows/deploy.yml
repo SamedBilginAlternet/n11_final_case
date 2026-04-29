@@ -4,6 +4,15 @@ on:
   push:
     branches: [main]
     tags: ['v*']
+    # Doc-only commits (README, docs/, *.md) shouldn't trigger a 6-min
+    # rebuild of 10 images.  Anything that affects the actual artifacts
+    # (backend code, frontend code, infra/compose, this workflow) still
+    # falls through and triggers the full pipeline.
+    paths-ignore:
+      - '**.md'
+      - 'docs/**'
+      - '.gitignore'
+      - 'http/**'
   workflow_dispatch:
     inputs:
       image_tag:
@@ -14,29 +23,52 @@ env:
   GHCR_OWNER: ${{ github.repository_owner }}
 
 jobs:
-  build-images:
-    name: Build & push images to GHCR
+  meta:
+    name: Compute image tag
     runs-on: ubuntu-latest
-    permissions:
-      contents: read
-      packages: write
     outputs:
-      image_tag: ${{ steps.meta.outputs.image_tag }}
+      image_tag: ${{ steps.tag.outputs.image_tag }}
+      owner_lc: ${{ steps.tag.outputs.owner_lc }}
     steps:
-      - uses: actions/checkout@v4
-
-      - name: Compute image tag
-        id: meta
+      - id: tag
+        env:
+          OVERRIDE_TAG: ${{ inputs.image_tag }}
+          OWNER: ${{ github.repository_owner }}
         run: |
-          if [ -n "${{ inputs.image_tag }}" ]; then
-            TAG="${{ inputs.image_tag }}"
+          if [ -n "$OVERRIDE_TAG" ]; then
+            TAG="$OVERRIDE_TAG"
           elif [[ "$GITHUB_REF" == refs/tags/* ]]; then
             TAG="${GITHUB_REF_NAME#v}"
           else
             TAG="${GITHUB_SHA::7}"
           fi
           echo "image_tag=$TAG" >> "$GITHUB_OUTPUT"
+          echo "owner_lc=$(echo "$OWNER" | tr '[:upper:]' '[:lower:]')" >> "$GITHUB_OUTPUT"
           echo "Building tag: $TAG"
+
+  build-backend:
+    name: jib ${{ matrix.service }}
+    needs: meta
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+      packages: write
+    strategy:
+      # Don't cancel sibling builds on a single-service failure — we still
+      # want to know which services compile cleanly.
+      fail-fast: false
+      matrix:
+        service:
+          - api-gateway
+          - auth-service
+          - product-service
+          - cart-service
+          - order-service
+          - payment-service
+          - chatbot-service
+          - notification-service
+    steps:
+      - uses: actions/checkout@v4
 
       - uses: actions/setup-java@v4
         with:
@@ -51,83 +83,85 @@ jobs:
           username: ${{ github.actor }}
           password: ${{ secrets.GITHUB_TOKEN }}
 
-      - name: Install all modules to local repo
-        working-directory: backend
-        run: mvn -B -DskipTests install
-
-      - name: Build & push backend services via Jib
+      - name: Build & push ${{ matrix.service }}
         working-directory: backend
         env:
-          OWNER_LC: ${{ github.repository_owner }}
-          IMAGE_TAG: ${{ steps.meta.outputs.image_tag }}
+          OWNER_LC: ${{ needs.meta.outputs.owner_lc }}
+          IMAGE_TAG: ${{ needs.meta.outputs.image_tag }}
+          SVC: ${{ matrix.service }}
         run: |
-          OWNER_LC=$(echo "$OWNER_LC" | tr '[:upper:]' '[:lower:]')
-
-          # GHCR occasionally returns 404 BLOB_UPLOAD_UNKNOWN when jib's
-          # parallel layer chunks race against the registry's upload tracking.
-          # -Djib.serialize=true forces sequential layer uploads (slower but
-          # eliminates the race); a 3-attempt retry mops up any remaining
-          # transient flakes.  -Djib.httpTimeout bumps the default 20s to 60s
-          # so a slow GHCR response doesn't make jib reopen the upload.
-          jib_push() {
-            local svc=$1
-            local attempt=1
-            local max_attempts=3
-            while [ $attempt -le $max_attempts ]; do
-              if mvn -B -DskipTests -pl "$svc" \
-                  -Djib.to.image=ghcr.io/${OWNER_LC}/${svc}:${IMAGE_TAG} \
-                  -Djib.to.tags=latest \
-                  -Djib.serialize=true \
-                  -Djib.httpTimeout=60000 \
-                  -Djib.console=plain \
-                  jib:build; then
-                return 0
-              fi
-              echo "::warning::jib:build failed for $svc (attempt $attempt/$max_attempts), retrying in 15s..."
-              attempt=$((attempt+1))
-              sleep 15
-            done
-            echo "::error::jib:build failed for $svc after $max_attempts attempts"
-            return 1
-          }
-
-          for svc in api-gateway auth-service product-service cart-service order-service payment-service chatbot-service notification-service; do
-            echo "::group::Jib build $svc"
-            jib_push "$svc"
-            echo "::endgroup::"
+          # `-am` builds the `common` dependency before this service.
+          # Parallel layer uploads (no -Djib.serialize=true) — the 3-attempt
+          # retry mops up GHCR's occasional BLOB_UPLOAD_UNKNOWN race.
+          # httpTimeout=60000 keeps slow GHCR responses from looking like
+          # connection drops.
+          attempt=1
+          max_attempts=3
+          while [ $attempt -le $max_attempts ]; do
+            if mvn -B -pl "$SVC" -am -DskipTests package \
+                -Djib.to.image=ghcr.io/${OWNER_LC}/${SVC}:${IMAGE_TAG} \
+                -Djib.to.tags=latest \
+                -Djib.httpTimeout=60000 \
+                -Djib.console=plain \
+                jib:build; then
+              exit 0
+            fi
+            echo "::warning::jib:build failed for $SVC (attempt $attempt/$max_attempts), retrying in 15s..."
+            attempt=$((attempt+1))
+            sleep 15
           done
+          echo "::error::jib:build failed for $SVC after $max_attempts attempts"
+          exit 1
 
-      - name: Build & push frontend image
-        working-directory: frontend
-        env:
-          OWNER_LC: ${{ github.repository_owner }}
-          IMAGE_TAG: ${{ steps.meta.outputs.image_tag }}
-        run: |
-          OWNER_LC=$(echo "$OWNER_LC" | tr '[:upper:]' '[:lower:]')
-          docker build --build-arg VITE_API_BASE_URL=/api \
-            -t ghcr.io/${OWNER_LC}/frontend:${IMAGE_TAG} \
-            -t ghcr.io/${OWNER_LC}/frontend:latest .
-          docker push ghcr.io/${OWNER_LC}/frontend:${IMAGE_TAG}
-          docker push ghcr.io/${OWNER_LC}/frontend:latest
+  build-frontend:
+    name: docker ${{ matrix.image }}
+    needs: meta
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+      packages: write
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - image: frontend
+            workdir: frontend
+            api_base: /api
+          - image: frontend-admin
+            workdir: frontend-admin
+            # Empty VITE_API_BASE_URL → axios calls land on same-origin
+            # /api/*, which the admin's nginx wrapper proxies to gateway.
+            api_base: ''
+    steps:
+      - uses: actions/checkout@v4
 
-      - name: Build & push frontend-admin image
-        working-directory: frontend-admin
-        env:
-          OWNER_LC: ${{ github.repository_owner }}
-          IMAGE_TAG: ${{ steps.meta.outputs.image_tag }}
-        run: |
-          OWNER_LC=$(echo "$OWNER_LC" | tr '[:upper:]' '[:lower:]')
-          # Empty VITE_API_BASE_URL → axios calls land on same-origin
-          # /api/*, which the admin's nginx wrapper proxies to gateway.
-          docker build --build-arg VITE_API_BASE_URL= \
-            -t ghcr.io/${OWNER_LC}/frontend-admin:${IMAGE_TAG} \
-            -t ghcr.io/${OWNER_LC}/frontend-admin:latest .
-          docker push ghcr.io/${OWNER_LC}/frontend-admin:${IMAGE_TAG}
-          docker push ghcr.io/${OWNER_LC}/frontend-admin:latest
+      - uses: docker/setup-buildx-action@v3
+
+      - name: Login to GHCR
+        uses: docker/login-action@v3
+        with:
+          registry: ghcr.io
+          username: ${{ github.actor }}
+          password: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Build & push ${{ matrix.image }}
+        uses: docker/build-push-action@v6
+        with:
+          context: ${{ matrix.workdir }}
+          push: true
+          build-args: |
+            VITE_API_BASE_URL=${{ matrix.api_base }}
+          tags: |
+            ghcr.io/${{ needs.meta.outputs.owner_lc }}/${{ matrix.image }}:${{ needs.meta.outputs.image_tag }}
+            ghcr.io/${{ needs.meta.outputs.owner_lc }}/${{ matrix.image }}:latest
+          # GHA cache cuts npm install + vite build to seconds on warm runs.
+          # Per-image scope keeps frontend / frontend-admin caches isolated.
+          cache-from: type=gha,scope=${{ matrix.image }}
+          cache-to: type=gha,scope=${{ matrix.image }},mode=max
 
   deploy-droplet:
     name: Deploy to DigitalOcean droplet
-    needs: build-images
+    needs: [meta, build-backend, build-frontend]
     runs-on: ubuntu-latest
     steps:
       - name: Check droplet credentials
@@ -160,7 +194,7 @@ jobs:
         if: steps.check.outputs.configured == 'true'
         uses: appleboy/ssh-action@v1.0.3
         env:
-          IMAGE_TAG: ${{ needs.build-images.outputs.image_tag }}
+          IMAGE_TAG: ${{ needs.meta.outputs.image_tag }}
         with:
           host: ${{ secrets.DO_DROPLET_HOST }}
           username: ${{ secrets.DO_DROPLET_USER }}
@@ -185,20 +219,27 @@ jobs:
 
   notify:
     name: Slack notify
-    needs: [build-images, deploy-droplet]
+    needs: [meta, build-backend, build-frontend, deploy-droplet]
     if: always()
     runs-on: ubuntu-latest
     steps:
       - name: Post to Slack
         env:
-          BUILD_STATUS: ${{ needs.build-images.result }}
+          BACKEND_STATUS: ${{ needs.build-backend.result }}
+          FRONTEND_STATUS: ${{ needs.build-frontend.result }}
           DEPLOY_STATUS: ${{ needs.deploy-droplet.result }}
-          IMAGE_TAG: ${{ needs.build-images.outputs.image_tag }}
+          IMAGE_TAG: ${{ needs.meta.outputs.image_tag }}
           WEBHOOK: ${{ secrets.SLACK_WEBHOOK_URL }}
         run: |
           if [ -z "$WEBHOOK" ]; then
             echo "SLACK_WEBHOOK_URL not configured — skipping"
             exit 0
+          fi
+
+          if [ "$BACKEND_STATUS" = "success" ] && [ "$FRONTEND_STATUS" = "success" ]; then
+            BUILD_STATUS="success"
+          else
+            BUILD_STATUS="failure"
           fi
 
           if [ "$DEPLOY_STATUS" = "success" ]; then
