@@ -15,30 +15,41 @@
 
 CREATE EXTENSION IF NOT EXISTS unaccent;
 
+-- IMMUTABILITY: Postgres only accepts IMMUTABLE expressions in STORED
+-- generated columns.  Both unaccent() forms ship as STABLE (they read the
+-- dictionary file at call time), so we wrap the two-arg form in our own
+-- SQL function declared IMMUTABLE.  This is the documented escape hatch
+-- — see https://www.postgresql.org/docs/current/unaccent.html "Functions"
+-- section, which notes the wrapper pattern explicitly for index/generated
+-- column use.  The dictionary is effectively read-only at runtime, so the
+-- "lie" is safe: changing the dictionary file requires a server restart
+-- and reindex anyway.
+CREATE OR REPLACE FUNCTION public.immutable_unaccent(text)
+    RETURNS text
+    LANGUAGE sql
+    IMMUTABLE
+    PARALLEL SAFE
+    STRICT
+AS $$
+    SELECT public.unaccent('public.unaccent'::regdictionary, $1)
+$$;
+
 -- Generated tsvector column — Postgres maintains it automatically on
 -- INSERT/UPDATE, so no application-side denormalisation drift.  Name +
 -- description weighted differently: a hit on the title (A) ranks above a
 -- hit in the description body (B), so "iphone" returns the iPhone page
 -- before pages whose description merely mentions iPhone.
---
--- IMMUTABILITY: Postgres only accepts IMMUTABLE expressions in STORED
--- generated columns.  to_tsvector('turkish', text) and single-arg
--- unaccent(text) are both STABLE (they look up search-config / dictionary
--- via session-scoped settings).  Casting the config to ::regconfig and
--- using the two-arg unaccent(regdictionary, text) form makes both calls
--- IMMUTABLE — the parser resolves the OIDs at DDL time, so a session-level
--- default_text_search_config change can't drift the index later.
 ALTER TABLE products
     ADD COLUMN search_tsv tsvector
     GENERATED ALWAYS AS (
         setweight(
             to_tsvector('turkish'::regconfig,
-                public.unaccent('public.unaccent'::regdictionary, coalesce(name, ''))),
+                public.immutable_unaccent(coalesce(name, ''))),
             'A')
         ||
         setweight(
             to_tsvector('turkish'::regconfig,
-                public.unaccent('public.unaccent'::regdictionary, coalesce(description, ''))),
+                public.immutable_unaccent(coalesce(description, ''))),
             'B')
     ) STORED;
 
