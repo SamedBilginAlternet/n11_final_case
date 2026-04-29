@@ -35,6 +35,9 @@ public class ReviewController {
     @GetMapping("/mine")
     public ResponseEntity<ReviewDto> mine(@PathVariable Long productId,
                                           @AuthenticationPrincipal AuthenticatedUser user) {
+        if (user == null) {
+            return ResponseEntity.noContent().build();
+        }
         ReviewDto dto = service.myReview(productId, user.userId());
         return dto == null ? ResponseEntity.noContent().build() : ResponseEntity.ok(dto);
     }
