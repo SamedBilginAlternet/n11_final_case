@@ -83,14 +83,21 @@ jobs:
           username: ${{ github.actor }}
           password: ${{ secrets.GITHUB_TOKEN }}
 
-      - name: Install common to local m2
+      - name: Install parent pom + common to local m2
         working-directory: backend
         # Two-pass build because Maven applies the `jib:build` goal to every
         # module selected by `-am`, including `common` — which is a library
-        # without a main class, so Jib fails on it.  Installing common first
-        # (no jib goal) puts its jar in ~/.m2, then the service-only jib:build
-        # below resolves it from the local repo.
-        run: mvn -B -pl common -DskipTests install
+        # without a main class, so Jib fails on it.  We pre-populate ~/.m2:
+        #   - `mvn -N install` installs ONLY the aggregator pom (no recurse).
+        #     Without this, common's pom references parent and the second
+        #     pass fails with `Could not find artifact n11-final-case-parent`.
+        #   - `mvn -pl common install` then installs common.jar.
+        # The per-service `jib:build` invocation below resolves both from
+        # the local repo without needing `-am` (which would re-trigger the
+        # original "jib on common" bug).
+        run: |
+          mvn -B -N install
+          mvn -B -pl common -DskipTests install
 
       - name: Build & push ${{ matrix.service }}
         working-directory: backend
