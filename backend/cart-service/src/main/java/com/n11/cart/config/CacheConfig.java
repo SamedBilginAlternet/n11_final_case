@@ -1,5 +1,6 @@
 package com.n11.cart.config;
 
+import com.fasterxml.jackson.annotation.JsonTypeInfo;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.fasterxml.jackson.databind.jsontype.BasicPolymorphicTypeValidator;
 import com.fasterxml.jackson.datatype.jsr310.JavaTimeModule;
@@ -66,12 +67,22 @@ public class CacheConfig {
     }
 
     private GenericJackson2JsonRedisSerializer jsonSerializer() {
-        // See product-service CacheConfig for the rationale — activateDefaultTyping
-        // breaks reads of cached records (final classes get no type marker on
-        // write but the deserializer demands one).  Default `@class`-property
-        // typing in GenericJackson2JsonRedisSerializer handles both uniformly.
+        // See product-service CacheConfig for the full rationale.  Short
+        // version: we need `@class` embedded as a property (not wrapper-array)
+        // and applied to EVERYTHING so record DTOs round-trip; PTV restricts
+        // the type names to our package + JDK value types.
         ObjectMapper mapper = new ObjectMapper()
-                .registerModule(new JavaTimeModule());
+                .registerModule(new JavaTimeModule())
+                .activateDefaultTyping(
+                        BasicPolymorphicTypeValidator.builder()
+                                .allowIfBaseType(Object.class)
+                                .allowIfSubType("com.n11.cart.")
+                                .allowIfSubType("java.util.")
+                                .allowIfSubType("java.time.")
+                                .allowIfSubType("java.math.")
+                                .build(),
+                        ObjectMapper.DefaultTyping.EVERYTHING,
+                        JsonTypeInfo.As.PROPERTY);
         return new GenericJackson2JsonRedisSerializer(mapper);
     }
 }

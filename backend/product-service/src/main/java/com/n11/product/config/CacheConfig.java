@@ -1,5 +1,6 @@
 package com.n11.product.config;
 
+import com.fasterxml.jackson.annotation.JsonTypeInfo;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.fasterxml.jackson.databind.jsontype.BasicPolymorphicTypeValidator;
 import com.fasterxml.jackson.datatype.jsr310.JavaTimeModule;
@@ -75,15 +76,31 @@ public class CacheConfig {
     }
 
     private GenericJackson2JsonRedisSerializer jsonSerializer() {
-        // GenericJackson2JsonRedisSerializer ships its own `@class`-property
-        // type handling that works uniformly for final and non-final types
-        // (our DTOs are records, hence final).  Activating default typing on
-        // the supplied ObjectMapper switches Jackson to WRAPPER_ARRAY format
-        // — that format silently omits type info for final types on write
-        // but requires it on read for Object-typed cache values, so reads
-        // blow up with `expected START_ARRAY` once a record is cached.
+        // We need `@class` type info embedded in cached JSON so reads can
+        // reconstruct the concrete DTO type (cache values are Object-typed,
+        // and our DTOs are records — final classes that DefaultTyping.NON_FINAL
+        // would skip).  The two knobs that matter:
+        //   - As.PROPERTY  → adds {"@class":"...","field":...}.  Avoid
+        //     WRAPPER_ARRAY: it omits the marker for final types on write but
+        //     demands it on read, blowing up with `expected START_ARRAY`.
+        //   - DefaultTyping.EVERYTHING  → applies to records too.  NON_FINAL
+        //     skips final types, leaves records without `@class`, and reads
+        //     come back as LinkedHashMap → ClassCastException.
+        // PolymorphicTypeValidator restricts the embedded class names to our
+        // DTO package + JDK value types — keeps the door shut on Jackson
+        // default-typing gadget chains.
         ObjectMapper mapper = new ObjectMapper()
-                .registerModule(new JavaTimeModule());
+                .registerModule(new JavaTimeModule())
+                .activateDefaultTyping(
+                        BasicPolymorphicTypeValidator.builder()
+                                .allowIfBaseType(Object.class)
+                                .allowIfSubType("com.n11.product.")
+                                .allowIfSubType("java.util.")
+                                .allowIfSubType("java.time.")
+                                .allowIfSubType("java.math.")
+                                .build(),
+                        ObjectMapper.DefaultTyping.EVERYTHING,
+                        JsonTypeInfo.As.PROPERTY);
         return new GenericJackson2JsonRedisSerializer(mapper);
     }
 }
