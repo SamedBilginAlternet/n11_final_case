@@ -13,10 +13,15 @@ import java.util.Optional;
 public interface CouponRepository extends JpaRepository<Coupon, Long> {
 
     // Cached by uppercased code so 'KUPON100' and 'kupon100' share an entry.
-    // unless='#result == null': empty-optional misses don't pollute cache with junk lookups.
+    // Spring Cache auto-unwraps Optional return types (4.3+): SpEL `#result`
+    // sees the unwrapped Coupon, never the Optional wrapper.  An earlier
+    // version had `or !#result.isPresent()` here — that blew up with
+    // SpelEvaluationException on every cache hit because Coupon has no
+    // isPresent() method.  `#result == null` covers Optional.empty() (the
+    // unwrap converts empty → null) and is sufficient on its own.
     @Cacheable(cacheNames = "coupons:byCode",
                key = "#code.toUpperCase()",
-               unless = "#result == null or !#result.isPresent()")
+               unless = "#result == null")
     Optional<Coupon> findByCodeIgnoreCase(String code);
 
     /**
