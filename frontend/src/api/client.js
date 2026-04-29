@@ -1,7 +1,13 @@
 import axios from 'axios';
 
 const baseURL = import.meta.env.VITE_API_BASE_URL || '/api';
-const root = baseURL.endsWith('/api') ? baseURL.slice(0, -4) : baseURL;
+// `apiRoot` is the origin without the `/api` suffix — axios prepends `/api/...`
+// itself in every call, so the instance baseURL must NOT include `/api` or
+// requests would land on `/api/api/...` (real bug we hit before).  Exported so
+// non-axios callers (OAuth redirect, file downloads, server-rendered links)
+// can build URLs the same way without re-deriving the strip rule.
+export const apiRoot = baseURL.endsWith('/api') ? baseURL.slice(0, -4) : baseURL;
+const root = apiRoot;
 
 export const api = axios.create({ baseURL: root });
 

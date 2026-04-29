@@ -2,8 +2,13 @@ import { useEffect, useState } from 'react';
 import { Link, useLocation, useNavigate, useSearchParams } from 'react-router-dom';
 import toast from 'react-hot-toast';
 import { useAuth } from '../state/AuthContext.jsx';
+import { apiRoot } from '../api/client.js';
 
-const OAUTH_BASE = `${import.meta.env.VITE_API_BASE_URL || ''}/api/auth/oauth2/authorize`;
+// Use the shared apiRoot (origin without /api) so the redirect URL is
+// `<origin>/api/auth/oauth2/authorize/google`.  The earlier hand-rolled
+// version did `VITE_API_BASE_URL + '/api/...'` which produced `/api/api/...`
+// in production where the build arg was `VITE_API_BASE_URL=/api`.
+const OAUTH_BASE = `${apiRoot}/api/auth/oauth2/authorize`;
 
 export default function LoginPage() {
   const { login, loading } = useAuth();
