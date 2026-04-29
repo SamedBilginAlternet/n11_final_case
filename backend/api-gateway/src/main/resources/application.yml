@@ -6,6 +6,21 @@ spring:
     name: api-gateway
   cloud:
     gateway:
+      # Caddy in front already sets X-Forwarded-Proto: https / X-Forwarded-Host
+      # / X-Forwarded-For correctly.  Default Spring Cloud Gateway behaviour
+      # is to APPEND the gateway's own (internal HTTP) values to those
+      # headers, which produces "X-Forwarded-Proto: https,http".  When
+      # auth-service uses forward-headers-strategy=framework to reconstruct
+      # `{baseUrl}` for OAuth2's `redirect_uri`, downstream parsing was
+      # picking up the polluted value and emitting `http://...` to Google,
+      # breaking redirect_uri_mismatch.
+      # *-append=false keeps the Caddy-provided values intact; if no
+      # upstream proxy sent them (direct hit), Spring will still set them.
+      x-forwarded:
+        proto-append: false
+        host-append: false
+        port-append: false
+        for-append: false
       default-filters:
         - DedupeResponseHeader=Access-Control-Allow-Origin Access-Control-Allow-Credentials, RETAIN_UNIQUE
       globalcors:
