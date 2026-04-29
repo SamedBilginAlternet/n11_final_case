@@ -83,6 +83,15 @@ jobs:
           username: ${{ github.actor }}
           password: ${{ secrets.GITHUB_TOKEN }}
 
+      - name: Install common to local m2
+        working-directory: backend
+        # Two-pass build because Maven applies the `jib:build` goal to every
+        # module selected by `-am`, including `common` — which is a library
+        # without a main class, so Jib fails on it.  Installing common first
+        # (no jib goal) puts its jar in ~/.m2, then the service-only jib:build
+        # below resolves it from the local repo.
+        run: mvn -B -pl common -DskipTests install
+
       - name: Build & push ${{ matrix.service }}
         working-directory: backend
         env:
@@ -90,15 +99,16 @@ jobs:
           IMAGE_TAG: ${{ needs.meta.outputs.image_tag }}
           SVC: ${{ matrix.service }}
         run: |
-          # `-am` builds the `common` dependency before this service.
-          # Parallel layer uploads (no -Djib.serialize=true) — the 3-attempt
-          # retry mops up GHCR's occasional BLOB_UPLOAD_UNKNOWN race.
-          # httpTimeout=60000 keeps slow GHCR responses from looking like
-          # connection drops.
+          # No -am here — we already installed common in the previous step,
+          # so this invocation operates on a single module and won't try to
+          # apply jib:build to library modules.  Parallel layer uploads
+          # (no -Djib.serialize=true) — the 3-attempt retry mops up GHCR's
+          # occasional BLOB_UPLOAD_UNKNOWN race.  httpTimeout=60000 keeps
+          # slow GHCR responses from looking like connection drops.
           attempt=1
           max_attempts=3
           while [ $attempt -le $max_attempts ]; do
-            if mvn -B -pl "$SVC" -am -DskipTests package \
+            if mvn -B -pl "$SVC" -DskipTests package \
                 -Djib.to.image=ghcr.io/${OWNER_LC}/${SVC}:${IMAGE_TAG} \
                 -Djib.to.tags=latest \
                 -Djib.httpTimeout=60000 \
