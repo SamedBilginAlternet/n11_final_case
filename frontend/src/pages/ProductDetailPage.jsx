@@ -1,7 +1,9 @@
 import { useEffect, useState } from 'react';
 import { useParams } from 'react-router-dom';
+import { Heart } from 'lucide-react';
 import { api } from '../api/client.js';
 import { useCart } from '../state/CartContext.jsx';
+import { useWishlist } from '../state/WishlistContext.jsx';
 import RatingStars from '../components/product/RatingStars.jsx';
 import RecommendationStrip from '../components/product/RecommendationStrip.jsx';
 import ReviewsSection from '../components/product/ReviewsSection.jsx';
@@ -10,6 +12,7 @@ import { formatCurrency } from '../utils/format.js';
 export default function ProductDetailPage() {
   const { slug } = useParams();
   const { addItem } = useCart();
+  const { isFavourite, toggle: toggleWishlist } = useWishlist();
 
   const [product, setProduct] = useState(null);
   const [loading, setLoading] = useState(true);
@@ -78,7 +81,7 @@ export default function ProductDetailPage() {
           </span>
         </div>
 
-        <div className="flex items-center gap-3">
+        <div className="flex flex-wrap items-center gap-3">
           <input
             type="number"
             min={1}
@@ -89,6 +92,24 @@ export default function ProductDetailPage() {
           />
           <button onClick={onAddToCart} disabled={!inStock || adding} className="btn-primary">
             {adding ? 'Ekleniyor…' : 'Sepete Ekle'}
+          </button>
+          <button
+            type="button"
+            onClick={() => toggleWishlist(product.id)}
+            aria-pressed={isFavourite(product.id)}
+            aria-label={isFavourite(product.id) ? 'Favorilerden çıkar' : 'Favorilere ekle'}
+            className={`inline-flex items-center gap-2 rounded-md border px-4 py-2 text-sm font-medium transition ${
+              isFavourite(product.id)
+                ? 'border-n11-pink bg-n11-pink/10 text-n11-pink hover:bg-n11-pink/15'
+                : 'border-gray-300 text-gray-700 hover:border-n11-pink hover:text-n11-pink'
+            }`}
+          >
+            <Heart
+              className="h-4 w-4"
+              strokeWidth={1.8}
+              fill={isFavourite(product.id) ? 'currentColor' : 'none'}
+            />
+            {isFavourite(product.id) ? 'Favorilerde' : 'Favorilere Ekle'}
           </button>
         </div>
       </div>
