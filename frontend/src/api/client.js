@@ -88,7 +88,12 @@ api.interceptors.response.use(
       || url.includes('/api/auth/refresh')
       || url.includes('/api/auth/logout');
 
-    if (status === 401 && original && !original._retry && !isAuthEndpoint && tokenStore.getRefresh()) {
+    // Backend returns 401 when no auth header reaches the filter, but 403
+    // when an *expired* JWT is presented (the anonymous-auth filter promotes
+    // the request to anonymous before authorization runs).  Both cases mean
+    // "token is dead, try to refresh" — discriminating is the gateway's job,
+    // not ours.
+    if ((status === 401 || status === 403) && original && !original._retry && !isAuthEndpoint && tokenStore.getRefresh()) {
       original._retry = true;
       try {
         const newAccess = await performRefresh();
