@@ -16,6 +16,11 @@ x-redis-env: &redis-env
   REDIS_HOST: redis
   REDIS_PORT: 6379
 
+# Bumping CACHE_SCHEMA_VERSION orphans old Redis entries (TTL evicts) so a
+# deploy that changes cached value shape doesn't poison new readers.
+x-cache-env: &cache-env
+  CACHE_SCHEMA_VERSION: "${CACHE_SCHEMA_VERSION:-1}"
+
 x-jvm-defaults: &jvm-defaults
   JAVA_TOOL_OPTIONS: "-XX:+UseG1GC -XX:MaxRAMPercentage=75"
 
@@ -129,7 +134,7 @@ services:
       redis:    { condition: service_healthy }
       rabbitmq: { condition: service_healthy }
     environment:
-      <<: [*postgres-env, *redis-env, *rabbitmq-env, *otel-env, *jvm-defaults]
+      <<: [*postgres-env, *redis-env, *cache-env, *rabbitmq-env, *otel-env, *jvm-defaults]
       SERVER_PORT: 8082
       POSTGRES_DB: productdb
       JWT_SECRET: ${JWT_SECRET:-changeme-32-byte-min-secret-changeme-please-rotate}
@@ -160,7 +165,7 @@ services:
       redis:    { condition: service_healthy }
       product-service: { condition: service_started }
     environment:
-      <<: [*postgres-env, *rabbitmq-env, *redis-env, *otel-env, *jvm-defaults]
+      <<: [*postgres-env, *rabbitmq-env, *redis-env, *cache-env, *otel-env, *jvm-defaults]
       SERVER_PORT: 8083
       POSTGRES_DB: cartdb
       JWT_SECRET: ${JWT_SECRET:-changeme-32-byte-min-secret-changeme-please-rotate}

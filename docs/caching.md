@@ -221,7 +221,68 @@ geçir.
 
 ---
 
-## 7. Bilinçli Olarak Yapmadıklarımız
+## 7. Cache Schema Versioning — `CACHE_SCHEMA_VERSION`
+
+**Problem:** Cache value shape değiştiğinde (DTO field eklendi/çıktı, Redis serializer
+yeniden ayarlandı, Coupon entity'sine yeni field geldi) eski Redis entry'leri **poisoned**
+olur — yeni kod onları deserialize edemez ve runtime exception fırlar. Klasik "deploy edince
+cart-service patladı" senaryosu.
+
+**Üç olası çözüm + tercihimiz:**
+
+| Strateji | Avantaj | Dezavantaj | Tercih |
+|---|---|---|---|
+| Her deploy `FLUSHALL` | Basit, deterministik | Her deploy = cold cache → DB'ye burst (cache stampede riski). Aynı zamanda en küçük commit'ler için bile aşırı | ❌ |
+| TTL'lerin kendiliğinden expire'ı | Sıfır iş | Bug süresi = en uzun TTL (1 saata kadar). Kullanıcı bug görür | ❌ |
+| **Versiyonlu key prefix** | Cold cache yok, sadece etkilenen cache repopulate. Explicit kontrol | Disiplin: schema değişince env'i bump'lamayı unutmamak | ✅ |
+
+**Implementasyon (`*Service/.../config/CacheConfig.java`):**
+
+```java
+@Value("${n11.cache.schema-version:1}")
+private String schemaVersion;
+
+private RedisCacheConfiguration baseConfig(Duration defaultTtl) {
+    String prefix = "product:v" + schemaVersion + ":";
+    return RedisCacheConfiguration.defaultCacheConfig()
+            .entryTtl(defaultTtl)
+            .computePrefixWith(cacheName -> prefix + cacheName + "::")
+            ...
+}
+```
+
+**Key shape:** `<service>:v<N>:<cacheName>::<key>`
+Örnek: `product:v1:products:bySlug::pamuk-nevresim`, `cart:v1:coupons:byCode::KUPON100`
+
+**Bump checklist** — bu durumlarda `.env`'de `CACHE_SCHEMA_VERSION` artır:
+
+- ✅ Cache'lenen DTO/entity'ye field eklendi/çıkarıldı
+- ✅ Redis serializer config değişti (Jackson `DefaultTyping`, `PolymorphicTypeValidator`,
+  module list, vs.)
+- ✅ Cache key formatı değişti (örn: SpEL `key=` ifadesi)
+- ✅ Bir cache name silindi/yeniden adlandırıldı
+- ❌ Sadece TTL değişti — eski entry'ler de yeni TTL'i alacak doğal yoldan
+- ❌ Sadece kod refactor (DTO shape aynı kaldı)
+- ❌ Yeni cache name eklendi — yeni prefix zaten otomatik
+
+**Bump sonrası:** Eski entry'ler Redis'te kalır ama hiçbir kod onları okumaz, doğal
+yoldan TTL ile evict olurlar. Manuel `FLUSHALL` veya `KEYS pattern | DEL` gerekmez.
+
+**Neden `n11.cache.schema-version` `application.yml`'de?** `spring.cache.redis.key-prefix`
+property'si Spring Boot auto-config CacheManager için. Bizim custom `RedisCacheManager`
+bean'imiz var, o property silently ignore ediliyor — her halükarda `CacheConfig.java` içinde
+açıkça `computePrefixWith()` çağrısı yapmamız lazım. Dolayısıyla bizim kendi property'mizle
+inject ediyoruz.
+
+**Mülakatta:**
+> "Cache schema versioning kullanıyorum — key prefix'te `v<N>` taşıyor, env değişkeniyle
+> kontrol ediliyor. Cache value shape'ini etkileyen deploy'larda bumpluyorum, eski entry'ler
+> orphan olarak TTL ile evict oluyor. Auto-FLUSHALL yapmıyorum çünkü her deploy'da cache
+> stampede tetiklemenin maliyeti, schema bug'larının nadirliğine ters orantılı."
+
+---
+
+## 8. Bilinçli Olarak Yapmadıklarımız
 
 - **Cache warmer yok**: Cold start'ta cache boş, ilk request'ler yavaş. Demo için OK; prod'da
   startup'ta `categories` ve top-50 product'u pre-load eden bir `@PostConstruct` job eklenebilir.

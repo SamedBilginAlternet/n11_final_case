@@ -30,11 +30,16 @@ spring:
     redis:
       time-to-live: 60s
       cache-null-values: false
-      use-key-prefix: true
-      key-prefix: "cart:"
       enable-statistics: true
+      # NB: spring.cache.redis.key-prefix is intentionally absent — we build a
+      # custom RedisCacheManager (CacheConfig) and apply the prefix via
+      # computePrefixWith(), which honours n11.cache.schema-version below.
 
 n11:
+  cache:
+    # Bump when cache value shape changes (DTO field added/removed, serializer
+    # rewired) so old entries orphan and TTL-evict.  See docs/caching.md.
+    schema-version: ${CACHE_SCHEMA_VERSION:1}
   jwt:
     secret: ${JWT_SECRET:dev-only-please-change-32-byte-secret-1234567890}
     issuer: n11-auth

@@ -4,6 +4,7 @@ import com.fasterxml.jackson.annotation.JsonTypeInfo;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.fasterxml.jackson.databind.jsontype.BasicPolymorphicTypeValidator;
 import com.fasterxml.jackson.datatype.jsr310.JavaTimeModule;
+import org.springframework.beans.factory.annotation.Value;
 import org.springframework.boot.autoconfigure.condition.ConditionalOnProperty;
 import org.springframework.cache.annotation.EnableCaching;
 import org.springframework.context.annotation.Bean;
@@ -47,6 +48,15 @@ import java.util.Map;
 @ConditionalOnProperty(name = "spring.cache.type", havingValue = "redis", matchIfMissing = true)
 public class CacheConfig {
 
+    /**
+     * Schema version baked into every cache key — bump when the cached value
+     * shape changes (DTO field added/removed, serializer rewired) so old
+     * entries orphan and TTL-evict instead of poisoning new readers.  See
+     * {@code docs/caching.md} for the bump checklist.
+     */
+    @Value("${n11.cache.schema-version:1}")
+    private String schemaVersion;
+
     @Bean
     public RedisCacheManager cacheManager(RedisConnectionFactory connectionFactory) {
         RedisCacheConfiguration base = baseConfig(Duration.ofMinutes(5));
@@ -66,9 +76,15 @@ public class CacheConfig {
     }
 
     private RedisCacheConfiguration baseConfig(Duration defaultTtl) {
+        // Key shape: product:v<schemaVersion>:<cacheName>::<key>
+        // The schema version goes between the service prefix and the cache
+        // name so a single FLUSHALL isn't needed to roll the cache forward;
+        // bumping the env var orphans old entries and Redis TTL evicts them.
+        String prefix = "product:v" + schemaVersion + ":";
         return RedisCacheConfiguration.defaultCacheConfig()
                 .entryTtl(defaultTtl)
                 .disableCachingNullValues()
+                .computePrefixWith(cacheName -> prefix + cacheName + "::")
                 .serializeKeysWith(RedisSerializationContext.SerializationPair.fromSerializer(
                         new StringRedisSerializer()))
                 .serializeValuesWith(RedisSerializationContext.SerializationPair.fromSerializer(

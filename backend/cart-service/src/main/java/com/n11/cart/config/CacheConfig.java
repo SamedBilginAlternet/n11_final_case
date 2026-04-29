@@ -4,6 +4,7 @@ import com.fasterxml.jackson.annotation.JsonTypeInfo;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.fasterxml.jackson.databind.jsontype.BasicPolymorphicTypeValidator;
 import com.fasterxml.jackson.datatype.jsr310.JavaTimeModule;
+import org.springframework.beans.factory.annotation.Value;
 import org.springframework.boot.autoconfigure.condition.ConditionalOnProperty;
 import org.springframework.cache.annotation.EnableCaching;
 import org.springframework.context.annotation.Bean;
@@ -43,6 +44,15 @@ import java.util.Map;
 @ConditionalOnProperty(name = "spring.cache.type", havingValue = "redis", matchIfMissing = true)
 public class CacheConfig {
 
+    /**
+     * Schema version baked into every cache key — bump when the cached value
+     * shape changes (DTO field added/removed, serializer rewired) so old
+     * entries orphan and TTL-evict instead of poisoning new readers.  See
+     * {@code docs/caching.md} for the bump checklist.
+     */
+    @Value("${n11.cache.schema-version:1}")
+    private String schemaVersion;
+
     @Bean
     public RedisCacheManager cacheManager(RedisConnectionFactory connectionFactory) {
         RedisCacheConfiguration base = baseConfig(Duration.ofSeconds(60));
@@ -57,9 +67,13 @@ public class CacheConfig {
     }
 
     private RedisCacheConfiguration baseConfig(Duration defaultTtl) {
+        // Key shape: cart:v<schemaVersion>:<cacheName>::<key>
+        // See product-service CacheConfig for the schema-version rationale.
+        String prefix = "cart:v" + schemaVersion + ":";
         return RedisCacheConfiguration.defaultCacheConfig()
                 .entryTtl(defaultTtl)
                 .disableCachingNullValues()
+                .computePrefixWith(cacheName -> prefix + cacheName + "::")
                 .serializeKeysWith(RedisSerializationContext.SerializationPair.fromSerializer(
                         new StringRedisSerializer()))
                 .serializeValuesWith(RedisSerializationContext.SerializationPair.fromSerializer(
