@@ -75,19 +75,15 @@ public class CacheConfig {
     }
 
     private GenericJackson2JsonRedisSerializer jsonSerializer() {
-        // PolymorphicTypeValidator scoped to our DTO package — prevents the
-        // 'pickle-style' type-confusion gadgets that come with Jackson default-typing.
+        // GenericJackson2JsonRedisSerializer ships its own `@class`-property
+        // type handling that works uniformly for final and non-final types
+        // (our DTOs are records, hence final).  Activating default typing on
+        // the supplied ObjectMapper switches Jackson to WRAPPER_ARRAY format
+        // — that format silently omits type info for final types on write
+        // but requires it on read for Object-typed cache values, so reads
+        // blow up with `expected START_ARRAY` once a record is cached.
         ObjectMapper mapper = new ObjectMapper()
-                .registerModule(new JavaTimeModule())
-                .activateDefaultTyping(
-                        BasicPolymorphicTypeValidator.builder()
-                                .allowIfBaseType(Object.class)
-                                .allowIfSubType("com.n11.product.")
-                                .allowIfSubType("java.util.")
-                                .allowIfSubType("java.time.")
-                                .allowIfSubType("java.math.")
-                                .build(),
-                        ObjectMapper.DefaultTyping.NON_FINAL);
+                .registerModule(new JavaTimeModule());
         return new GenericJackson2JsonRedisSerializer(mapper);
     }
 }

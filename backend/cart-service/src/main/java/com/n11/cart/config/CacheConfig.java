@@ -66,17 +66,12 @@ public class CacheConfig {
     }
 
     private GenericJackson2JsonRedisSerializer jsonSerializer() {
+        // See product-service CacheConfig for the rationale — activateDefaultTyping
+        // breaks reads of cached records (final classes get no type marker on
+        // write but the deserializer demands one).  Default `@class`-property
+        // typing in GenericJackson2JsonRedisSerializer handles both uniformly.
         ObjectMapper mapper = new ObjectMapper()
-                .registerModule(new JavaTimeModule())
-                .activateDefaultTyping(
-                        BasicPolymorphicTypeValidator.builder()
-                                .allowIfBaseType(Object.class)
-                                .allowIfSubType("com.n11.cart.")
-                                .allowIfSubType("java.util.")
-                                .allowIfSubType("java.time.")
-                                .allowIfSubType("java.math.")
-                                .build(),
-                        ObjectMapper.DefaultTyping.NON_FINAL);
+                .registerModule(new JavaTimeModule());
         return new GenericJackson2JsonRedisSerializer(mapper);
     }
 }
