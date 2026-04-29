@@ -7,20 +7,20 @@ spring:
   cloud:
     gateway:
       # Caddy in front already sets X-Forwarded-Proto: https / X-Forwarded-Host
-      # / X-Forwarded-For correctly.  Default Spring Cloud Gateway behaviour
-      # is to APPEND the gateway's own (internal HTTP) values to those
-      # headers, which produces "X-Forwarded-Proto: https,http".  When
-      # auth-service uses forward-headers-strategy=framework to reconstruct
-      # `{baseUrl}` for OAuth2's `redirect_uri`, downstream parsing was
-      # picking up the polluted value and emitting `http://...` to Google,
-      # breaking redirect_uri_mismatch.
-      # *-append=false keeps the Caddy-provided values intact; if no
-      # upstream proxy sent them (direct hit), Spring will still set them.
+      # correctly.  XForwardedHeadersFilter's behaviour:
+      #   - *-enabled=true + *-append=true  (default): COMMA-APPEND the local
+      #     value → "X-Forwarded-Proto: https,http"
+      #   - *-enabled=true + *-append=false : OVERWRITE with the local value
+      #     (this was the bug in d2d620c — replaced Caddy's https with http)
+      #   - *-enabled=false                 : don't touch the header at all
+      # We want #3 for proto/host/port: pass Caddy's values through untouched.
+      # X-Forwarded-For we leave on default (append) so the chain stays visible
+      # in logs.  If no upstream proxy is present (direct hit), Spring's
+      # ForwardedHeaderFilter falls back to request.getScheme() — fine for dev.
       x-forwarded:
-        proto-append: false
-        host-append: false
-        port-append: false
-        for-append: false
+        proto-enabled: false
+        host-enabled: false
+        port-enabled: false
       default-filters:
         - DedupeResponseHeader=Access-Control-Allow-Origin Access-Control-Allow-Credentials, RETAIN_UNIQUE
       globalcors:
