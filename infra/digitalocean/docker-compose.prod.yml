@@ -99,6 +99,11 @@ services:
       OAUTH2_REDIRECT_URI_TEMPLATE: ${OAUTH2_REDIRECT_URI_TEMPLATE:-}
       GOOGLE_CLIENT_ID: ${GOOGLE_CLIENT_ID:-}
       GOOGLE_CLIENT_SECRET: ${GOOGLE_CLIENT_SECRET:-}
+      # Refresh-token cookie attributes — defaults assume HTTPS in front
+      # (Caddy on prod). Flip AUTH_COOKIE_SECURE=false for plain-HTTP dev.
+      AUTH_COOKIE_SECURE: ${AUTH_COOKIE_SECURE:-true}
+      AUTH_COOKIE_SAMESITE: ${AUTH_COOKIE_SAMESITE:-Lax}
+      AUTH_COOKIE_DOMAIN: ${AUTH_COOKIE_DOMAIN:-}
     restart: unless-stopped
 
   product-service:

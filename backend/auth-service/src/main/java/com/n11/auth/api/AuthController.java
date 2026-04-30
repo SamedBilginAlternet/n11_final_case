@@ -2,10 +2,11 @@ package com.n11.auth.api;
 
 import com.n11.auth.api.dto.AuthTokenResponse;
 import com.n11.auth.api.dto.LoginRequest;
-import com.n11.auth.api.dto.RefreshRequest;
 import com.n11.auth.api.dto.RegisterRequest;
 import com.n11.auth.api.dto.UserDto;
+import com.n11.auth.security.RefreshCookieFactory;
 import com.n11.auth.service.AuthenticationService;
+import com.n11.auth.service.AuthenticationService.IssuedTokens;
 import com.n11.auth.service.RefreshTokenService;
 import com.n11.auth.service.RegistrationService;
 import io.swagger.v3.oas.annotations.Operation;
@@ -13,8 +14,11 @@ import io.swagger.v3.oas.annotations.tags.Tag;
 import jakarta.servlet.http.HttpServletRequest;
 import jakarta.validation.Valid;
 import lombok.RequiredArgsConstructor;
+import org.springframework.http.HttpHeaders;
 import org.springframework.http.HttpStatus;
+import org.springframework.http.ResponseCookie;
 import org.springframework.http.ResponseEntity;
+import org.springframework.security.authentication.BadCredentialsException;
 import org.springframework.web.bind.annotation.*;
 
 @RestController
@@ -26,6 +30,7 @@ public class AuthController {
     private final RegistrationService registrationService;
     private final AuthenticationService authenticationService;
     private final RefreshTokenService refreshTokenService;
+    private final RefreshCookieFactory cookieFactory;
 
     @Operation(summary = "Register a new user")
     @PostMapping("/register")
@@ -34,29 +39,45 @@ public class AuthController {
         return ResponseEntity.status(HttpStatus.CREATED).body(dto);
     }
 
-    @Operation(summary = "Login with email + password and receive JWT + refresh token")
+    @Operation(summary = "Login with email + password; access token in body, refresh in HttpOnly cookie")
     @PostMapping("/login")
     public ResponseEntity<AuthTokenResponse> login(@RequestBody @Valid LoginRequest request,
                                                    HttpServletRequest http) {
-        return ResponseEntity.ok(authenticationService.login(
-                request, http.getHeader("User-Agent"), clientIp(http)));
+        IssuedTokens issued = authenticationService.login(
+                request, http.getHeader("User-Agent"), clientIp(http));
+        return withRefreshCookie(issued);
     }
 
-    @Operation(summary = "Exchange a refresh token for a fresh access + rotated refresh token")
+    @Operation(summary = "Exchange the HttpOnly refresh-token cookie for a fresh access token + rotated cookie")
     @PostMapping("/refresh")
-    public ResponseEntity<AuthTokenResponse> refresh(@RequestBody @Valid RefreshRequest request,
-                                                     HttpServletRequest http) {
-        return ResponseEntity.ok(authenticationService.refresh(
-                request.refreshToken(), http.getHeader("User-Agent"), clientIp(http)));
+    public ResponseEntity<AuthTokenResponse> refresh(
+            @CookieValue(name = "${n11.auth.cookie.name:n11_refresh}", required = false) String refreshCookie,
+            HttpServletRequest http) {
+        if (refreshCookie == null || refreshCookie.isBlank()) {
+            throw new BadCredentialsException("Missing refresh token");
+        }
+        IssuedTokens issued = authenticationService.refresh(
+                refreshCookie, http.getHeader("User-Agent"), clientIp(http));
+        return withRefreshCookie(issued);
     }
 
-    @Operation(summary = "Revoke a refresh token (logout for this session)")
+    @Operation(summary = "Revoke the current refresh token and clear the cookie")
     @PostMapping("/logout")
-    public ResponseEntity<Void> logout(@RequestBody(required = false) RefreshRequest request) {
-        if (request != null && request.refreshToken() != null) {
-            refreshTokenService.revoke(request.refreshToken());
+    public ResponseEntity<Void> logout(
+            @CookieValue(name = "${n11.auth.cookie.name:n11_refresh}", required = false) String refreshCookie) {
+        if (refreshCookie != null && !refreshCookie.isBlank()) {
+            refreshTokenService.revoke(refreshCookie);
         }
-        return ResponseEntity.noContent().build();
+        return ResponseEntity.noContent()
+                .header(HttpHeaders.SET_COOKIE, cookieFactory.clear().toString())
+                .build();
+    }
+
+    private ResponseEntity<AuthTokenResponse> withRefreshCookie(IssuedTokens issued) {
+        ResponseCookie cookie = cookieFactory.issue(issued.refreshTokenRaw(), issued.refreshTtlSeconds());
+        return ResponseEntity.ok()
+                .header(HttpHeaders.SET_COOKIE, cookie.toString())
+                .body(issued.body());
     }
 
     private static String clientIp(HttpServletRequest request) {

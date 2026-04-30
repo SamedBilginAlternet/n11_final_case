@@ -25,7 +25,7 @@ public class AuthenticationService {
     private final UserMapper userMapper;
 
     @Transactional
-    public AuthTokenResponse login(LoginRequest request, String userAgent, String ip) {
+    public IssuedTokens login(LoginRequest request, String userAgent, String ip) {
         User user = userRepository.findByEmailIgnoreCase(request.email().trim().toLowerCase())
                 .orElseThrow(() -> new BadCredentialsException("Invalid credentials"));
 
@@ -43,38 +43,36 @@ public class AuthenticationService {
     }
 
     @Transactional
-    public AuthTokenResponse refresh(String presentedRefreshToken, String userAgent, String ip) {
+    public IssuedTokens refresh(String presentedRefreshToken, String userAgent, String ip) {
         RefreshTokenService.RotateResult rotated =
                 refreshTokenService.rotate(presentedRefreshToken, userAgent, ip);
         JwtTokenProvider.IssuedToken access = tokenProvider.issue(rotated.user());
 
         log.info("Rotated refresh token for userId={}", rotated.user().getId());
-        return new AuthTokenResponse(
-                access.token(),
-                "Bearer",
-                access.expiresInSeconds(),
-                access.issuedAt(),
-                rotated.issued().rawToken(),
-                rotated.issued().expiresInSeconds(),
-                userMapper.toDto(rotated.user())
-        );
+        AuthTokenResponse body = new AuthTokenResponse(
+                access.token(), "Bearer", access.expiresInSeconds(),
+                access.issuedAt(), userMapper.toDto(rotated.user()));
+        return new IssuedTokens(body, rotated.issued().rawToken(), rotated.issued().expiresInSeconds());
     }
 
-    public AuthTokenResponse issueTokens(User user, String userAgent, String ip) {
+    public IssuedTokens issueTokens(User user, String userAgent, String ip) {
         JwtTokenProvider.IssuedToken access = tokenProvider.issue(user);
         RefreshTokenService.Issued refresh = refreshTokenService.issueNewFamily(user, userAgent, ip);
 
         log.info("Issued JWT + refresh for userId={} accessTtl={}s refreshTtl={}s",
                 user.getId(), access.expiresInSeconds(), refresh.expiresInSeconds());
 
-        return new AuthTokenResponse(
-                access.token(),
-                "Bearer",
-                access.expiresInSeconds(),
-                access.issuedAt(),
-                refresh.rawToken(),
-                refresh.expiresInSeconds(),
-                userMapper.toDto(user)
-        );
+        AuthTokenResponse body = new AuthTokenResponse(
+                access.token(), "Bearer", access.expiresInSeconds(),
+                access.issuedAt(), userMapper.toDto(user));
+        return new IssuedTokens(body, refresh.rawToken(), refresh.expiresInSeconds());
     }
+
+    /**
+     * Bundle returned to the controller / OAuth handler.  The body goes into
+     * the JSON response or URL fragment; the raw refresh token is meant to
+     * be set as an HttpOnly cookie on the same response and never serialised
+     * elsewhere.
+     */
+    public record IssuedTokens(AuthTokenResponse body, String refreshTokenRaw, long refreshTtlSeconds) {}
 }

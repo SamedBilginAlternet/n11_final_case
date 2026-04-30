@@ -2,13 +2,15 @@ package com.n11.auth.security;
 
 import com.n11.auth.config.SocialLoginProperties;
 import com.n11.auth.domain.User;
-import com.n11.auth.service.RefreshTokenService;
+import com.n11.auth.service.AuthenticationService;
+import com.n11.auth.service.AuthenticationService.IssuedTokens;
 import com.n11.auth.service.SocialLoginService;
 import jakarta.servlet.ServletException;
 import jakarta.servlet.http.HttpServletRequest;
 import jakarta.servlet.http.HttpServletResponse;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
+import org.springframework.http.HttpHeaders;
 import org.springframework.security.core.Authentication;
 import org.springframework.security.oauth2.client.authentication.OAuth2AuthenticationToken;
 import org.springframework.security.oauth2.core.user.OAuth2User;
@@ -24,8 +26,8 @@ import java.io.IOException;
 public class OAuth2LoginSuccessHandler implements AuthenticationSuccessHandler {
 
     private final SocialLoginService socialLoginService;
-    private final JwtTokenProvider tokenProvider;
-    private final RefreshTokenService refreshTokenService;
+    private final AuthenticationService authenticationService;
+    private final RefreshCookieFactory cookieFactory;
     private final SocialLoginProperties properties;
 
     @Override
@@ -47,16 +49,20 @@ public class OAuth2LoginSuccessHandler implements AuthenticationSuccessHandler {
         }
 
         User user = socialLoginService.upsert(registrationId, subject, email, name);
-        JwtTokenProvider.IssuedToken issued = tokenProvider.issue(user);
-        RefreshTokenService.Issued refresh = refreshTokenService.issueNewFamily(
+        IssuedTokens issued = authenticationService.issueTokens(
                 user, request.getHeader("User-Agent"), request.getRemoteAddr());
 
-        // URL fragment (not query) keeps tokens out of server access logs and
-        // out of the Referer header on the frontend's first navigation.
-        String fragment = "token=" + issued.token()
-                + "&expiresIn=" + issued.expiresInSeconds()
-                + "&refreshToken=" + refresh.rawToken()
-                + "&refreshExpiresIn=" + refresh.expiresInSeconds();
+        // Refresh token leaves the auth-service strictly through the HttpOnly
+        // cookie — never in the URL where it would land in browser history,
+        // referrer headers and any analytics script the SPA loads.  The
+        // access token still travels in the URL fragment (not query) so it
+        // doesn't hit server access logs and gets stripped on first redirect;
+        // the SPA reads it once and keeps it in memory.
+        response.addHeader(HttpHeaders.SET_COOKIE,
+                cookieFactory.issue(issued.refreshTokenRaw(), issued.refreshTtlSeconds()).toString());
+
+        String fragment = "token=" + issued.body().accessToken()
+                + "&expiresIn=" + issued.body().expiresIn();
 
         String redirect = UriComponentsBuilder.fromUriString(properties.frontendBaseUrl())
                 .path(properties.successPath())

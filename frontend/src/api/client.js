@@ -9,21 +9,29 @@ const baseURL = import.meta.env.VITE_API_BASE_URL || '/api';
 export const apiRoot = baseURL.endsWith('/api') ? baseURL.slice(0, -4) : baseURL;
 const root = apiRoot;
 
-export const api = axios.create({ baseURL: root });
+// withCredentials: required so the browser attaches the HttpOnly refresh
+// cookie on /api/auth/refresh and /api/auth/logout. The cookie is scoped to
+// /api/auth so it doesn't leak onto every other request.
+export const api = axios.create({ baseURL: root, withCredentials: true });
 
 // Separate axios instance for the /refresh call so a 401 from /refresh itself
 // can't recursively re-enter the response interceptor and stack overflow.
-const refreshClient = axios.create({ baseURL: root });
+const refreshClient = axios.create({ baseURL: root, withCredentials: true });
 
 const ACCESS_KEY = 'n11.token';
-const REFRESH_KEY = 'n11.refreshToken';
 const USER_KEY = 'n11.user';
 
 export const AUTH_EVENT = 'n11:auth-change';
 
+// Access token lives in module memory only — page reload means we ask the
+// /refresh endpoint for a new one (the HttpOnly cookie is still there). This
+// is the half of the OWASP recommendation that pairs with the cookie: even if
+// XSS executes, it can't read the access token off localStorage and use it
+// to impersonate the user from the attacker's machine.
+let accessTokenInMemory = null;
+
 export const tokenStore = {
-  getAccess: () => localStorage.getItem(ACCESS_KEY),
-  getRefresh: () => localStorage.getItem(REFRESH_KEY),
+  getAccess: () => accessTokenInMemory,
   getUser: () => {
     try {
       const raw = localStorage.getItem(USER_KEY);
@@ -32,19 +40,34 @@ export const tokenStore = {
       return null;
     }
   },
-  set: ({ accessToken, refreshToken, user }) => {
-    if (accessToken) localStorage.setItem(ACCESS_KEY, accessToken);
-    if (refreshToken) localStorage.setItem(REFRESH_KEY, refreshToken);
-    if (user) localStorage.setItem(USER_KEY, JSON.stringify(user));
+  set: ({ accessToken, user }) => {
+    if (accessToken !== undefined) {
+      accessTokenInMemory = accessToken;
+      // Mirror to sessionStorage only so a tab-internal route change can
+      // pick the token back up without going through /refresh again.
+      // sessionStorage is cleared when the tab closes; not shared across tabs.
+      if (accessToken) sessionStorage.setItem(ACCESS_KEY, accessToken);
+      else sessionStorage.removeItem(ACCESS_KEY);
+    }
+    if (user !== undefined) {
+      if (user) localStorage.setItem(USER_KEY, JSON.stringify(user));
+      else localStorage.removeItem(USER_KEY);
+    }
     window.dispatchEvent(new CustomEvent(AUTH_EVENT));
   },
   clear: () => {
-    localStorage.removeItem(ACCESS_KEY);
-    localStorage.removeItem(REFRESH_KEY);
+    accessTokenInMemory = null;
+    sessionStorage.removeItem(ACCESS_KEY);
     localStorage.removeItem(USER_KEY);
     window.dispatchEvent(new CustomEvent(AUTH_EVENT));
   },
 };
+
+// On boot, if the same tab still has an access token in sessionStorage (set
+// during this session), restore it. This avoids an extra /refresh on every
+// in-tab navigation while still losing the token when the tab is closed.
+const cachedAccess = sessionStorage.getItem(ACCESS_KEY);
+if (cachedAccess) accessTokenInMemory = cachedAccess;
 
 api.interceptors.request.use((config) => {
   const token = tokenStore.getAccess();
@@ -59,19 +82,13 @@ api.interceptors.request.use((config) => {
 // tokens (and our reuse-detection would nuke the family).
 let refreshPromise = null;
 
-async function performRefresh() {
+export async function performRefresh() {
   if (refreshPromise) return refreshPromise;
-  const refreshToken = tokenStore.getRefresh();
-  if (!refreshToken) throw new Error('no_refresh_token');
 
   refreshPromise = refreshClient
-    .post('/api/auth/refresh', { refreshToken })
+    .post('/api/auth/refresh')
     .then(({ data }) => {
-      tokenStore.set({
-        accessToken: data.accessToken,
-        refreshToken: data.refreshToken,
-        user: data.user,
-      });
+      tokenStore.set({ accessToken: data.accessToken, user: data.user });
       return data.accessToken;
     })
     .finally(() => {
@@ -99,7 +116,7 @@ api.interceptors.response.use(
     // the request to anonymous before authorization runs).  Both cases mean
     // "token is dead, try to refresh" — discriminating is the gateway's job,
     // not ours.
-    if ((status === 401 || status === 403) && original && !original._retry && !isAuthEndpoint && tokenStore.getRefresh()) {
+    if ((status === 401 || status === 403) && original && !original._retry && !isAuthEndpoint) {
       original._retry = true;
       try {
         const newAccess = await performRefresh();
@@ -112,8 +129,8 @@ api.interceptors.response.use(
       }
     }
 
-    if (status === 401 && isAuthEndpoint && url.includes('/api/auth/refresh')) {
-      // Refresh itself failed → session is dead, clear everything.
+    if (status === 401 && url.includes('/api/auth/refresh')) {
+      // Refresh itself failed → cookie is dead, clear local state.
       tokenStore.clear();
     }
 

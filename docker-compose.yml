@@ -121,6 +121,10 @@ services:
       FRONTEND_BASE_URL: ${FRONTEND_BASE_URL:-http://localhost:3000}
       GOOGLE_CLIENT_ID: ${GOOGLE_CLIENT_ID:-}
       GOOGLE_CLIENT_SECRET: ${GOOGLE_CLIENT_SECRET:-}
+      # Local dev runs over plain HTTP — Secure cookies would be ignored by
+      # the browser, so refresh would never round-trip. Prod compose sets
+      # this to true (HTTPS via Caddy).
+      AUTH_COOKIE_SECURE: ${AUTH_COOKIE_SECURE:-false}
     ports: ["8081:8081"]
 
   product-service:

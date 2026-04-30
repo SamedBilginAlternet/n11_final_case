@@ -1,6 +1,5 @@
 package com.n11.auth.service;
 
-import com.n11.auth.api.dto.AuthTokenResponse;
 import com.n11.auth.api.dto.LoginRequest;
 import com.n11.auth.api.dto.UserDto;
 import com.n11.auth.api.mapper.UserMapper;
@@ -48,14 +47,14 @@ class AuthenticationServiceTest {
                 .thenReturn(new RefreshTokenService.Issued(1L, "REFRESH", now.plusSeconds(2592000), 2592000, java.util.UUID.randomUUID()));
         when(userMapper.toDto(user)).thenReturn(new UserDto(7L, "a@b.com", "Ada", Role.USER, now));
 
-        AuthTokenResponse response = service.login(new LoginRequest("a@b.com", "pwd"), "agent", "1.2.3.4");
+        AuthenticationService.IssuedTokens issued = service.login(new LoginRequest("a@b.com", "pwd"), "agent", "1.2.3.4");
 
-        assertThat(response.accessToken()).isEqualTo("TOKEN");
-        assertThat(response.tokenType()).isEqualTo("Bearer");
-        assertThat(response.expiresIn()).isEqualTo(60);
-        assertThat(response.refreshToken()).isEqualTo("REFRESH");
-        assertThat(response.refreshExpiresIn()).isEqualTo(2592000);
-        assertThat(response.user().email()).isEqualTo("a@b.com");
+        assertThat(issued.body().accessToken()).isEqualTo("TOKEN");
+        assertThat(issued.body().tokenType()).isEqualTo("Bearer");
+        assertThat(issued.body().expiresIn()).isEqualTo(60);
+        assertThat(issued.refreshTokenRaw()).isEqualTo("REFRESH");
+        assertThat(issued.refreshTtlSeconds()).isEqualTo(2592000);
+        assertThat(issued.body().user().email()).isEqualTo("a@b.com");
     }
 
     @Test
@@ -98,9 +97,9 @@ class AuthenticationServiceTest {
         when(tokenProvider.issue(user)).thenReturn(new JwtTokenProvider.IssuedToken("NEW_TOKEN", now, now.plusSeconds(60), 60));
         when(userMapper.toDto(user)).thenReturn(new UserDto(7L, "a@b.com", "Ada", Role.USER, now));
 
-        AuthTokenResponse response = service.refresh("OLD", "agent", "1.2.3.4");
+        AuthenticationService.IssuedTokens issued = service.refresh("OLD", "agent", "1.2.3.4");
 
-        assertThat(response.accessToken()).isEqualTo("NEW_TOKEN");
-        assertThat(response.refreshToken()).isEqualTo("NEW_REFRESH");
+        assertThat(issued.body().accessToken()).isEqualTo("NEW_TOKEN");
+        assertThat(issued.refreshTokenRaw()).isEqualTo("NEW_REFRESH");
     }
 }

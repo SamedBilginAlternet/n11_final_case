@@ -26,6 +26,16 @@ n11:
     access-ttl-minutes: ${JWT_ACCESS_TTL_MIN:60}
     refresh-ttl-days: ${JWT_REFRESH_TTL_DAYS:30}
     issuer: n11-auth
+  auth:
+    # Refresh-token cookie attributes.  HttpOnly is forced in code; these are
+    # the user-tunable bits.  In dev (HTTP) set AUTH_COOKIE_SECURE=false so
+    # Chrome will accept and resend the cookie on http://localhost.
+    cookie:
+      name: ${AUTH_COOKIE_NAME:n11_refresh}
+      path: ${AUTH_COOKIE_PATH:/api/auth}
+      same-site: ${AUTH_COOKIE_SAMESITE:Lax}
+      secure: ${AUTH_COOKIE_SECURE:true}
+      domain: ${AUTH_COOKIE_DOMAIN:}
   social-login:
     frontend-base-url: ${FRONTEND_BASE_URL:http://localhost:3000}
     success-path: /auth/callback
