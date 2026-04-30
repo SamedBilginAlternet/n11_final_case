@@ -3,7 +3,6 @@ package com.n11.product.repository;
 import com.n11.product.api.dto.SearchSort;
 import com.n11.product.domain.Product;
 import jakarta.persistence.EntityManager;
-import jakarta.persistence.Query;
 import lombok.RequiredArgsConstructor;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.PageImpl;
@@ -24,15 +23,15 @@ import java.util.Set;
  *   <li>ts_rank as a SELECT expression for ORDER BY relevance can't be
  *       expressed in JPA.</li>
  *   <li>Dynamic predicate building (price range optional, rating optional,
- *       multi-category IN list optional) is messier in JPQL than just
- *       building the SQL string from a few flags.</li>
+ *       multi-category IN list optional) is fed through
+ *       {@link DynamicNativeQuery} so search and category-facet queries
+ *       share one definition of "the filters".</li>
  * </ul>
- * </p>
  *
- * <p>Pagination is done server-side via LIMIT/OFFSET and a parallel
- * COUNT(*) query — same pattern Spring Data uses internally.  Returns
- * {@link Product} entities so the existing ProductMapper.toSummary
- * still applies on the service layer.</p>
+ * <p>Pagination is server-side via LIMIT/OFFSET and a parallel COUNT(*)
+ * query — same pattern Spring Data uses internally. Returns
+ * {@link Product} entities so the existing ProductMapper.toSummary still
+ * applies on the service layer.</p>
  */
 @Repository
 @RequiredArgsConstructor
@@ -41,50 +40,22 @@ public class ProductSearchRepository {
     private final EntityManager em;
 
     public Page<Product> search(SearchCriteria c, Pageable pageable) {
-        StringBuilder where = new StringBuilder(" WHERE 1=1 ");
-        Args args = new Args();
+        String trimmedQ = trimToNull(c.q());
 
-        if (c.q() != null && !c.q().isBlank()) {
-            where.append(" AND p.search_tsv @@ plainto_tsquery('turkish', unaccent(:q)) ");
-            args.put("q", c.q().trim());
-        }
-        if (c.categoryIds() != null && !c.categoryIds().isEmpty()) {
-            where.append(" AND p.category_id IN (:categoryIds) ");
-            args.put("categoryIds", c.categoryIds());
-        }
-        if (c.minPrice() != null) {
-            where.append(" AND p.price >= :minPrice ");
-            args.put("minPrice", c.minPrice());
-        }
-        if (c.maxPrice() != null) {
-            where.append(" AND p.price <= :maxPrice ");
-            args.put("maxPrice", c.maxPrice());
-        }
-        if (c.minRating() != null) {
-            where.append(" AND p.rating_average >= :minRating ");
-            args.put("minRating", c.minRating());
-        }
-        if (c.inStockOnly()) {
-            where.append(" AND p.stock > 0 ");
-        }
+        DynamicNativeQuery pageQuery = applyFilters(
+                DynamicNativeQuery.select("SELECT p.* FROM products p"), c, trimmedQ)
+                .append(orderClause(c.sort(), trimmedQ))
+                .append("LIMIT :limit OFFSET :offset")
+                .bind("limit", pageable.getPageSize())
+                .bind("offset", pageable.getOffset());
 
-        String orderBy = orderClause(c);
-
-        // Page query
-        String pageSql = "SELECT p.* FROM products p " + where + orderBy
-                + " LIMIT :limit OFFSET :offset";
-        Query pageQuery = em.createNativeQuery(pageSql, Product.class);
-        args.applyTo(pageQuery);
-        pageQuery.setParameter("limit", pageable.getPageSize());
-        pageQuery.setParameter("offset", pageable.getOffset());
         @SuppressWarnings("unchecked")
-        List<Product> results = pageQuery.getResultList();
+        List<Product> results = pageQuery.toJpaQuery(em, Product.class).getResultList();
 
-        // Count query — same WHERE without ORDER/LIMIT
-        String countSql = "SELECT count(*) FROM products p " + where;
-        Query countQuery = em.createNativeQuery(countSql);
-        args.applyTo(countQuery);
-        long total = ((Number) countQuery.getSingleResult()).longValue();
+        long total = ((Number) applyFilters(
+                DynamicNativeQuery.select("SELECT count(*) FROM products p"), c, trimmedQ)
+                .toJpaQuery(em)
+                .getSingleResult()).longValue();
 
         return new PageImpl<>(results, pageable, total);
     }
@@ -92,56 +63,67 @@ public class ProductSearchRepository {
     /**
      * Per-category counts for the filter sidebar — applies the SAME filters
      * as {@link #search} except categoryIds, so the user can see how many
-     * products would match in each *other* category if they switched.
+     * products would match in each <em>other</em> category if they switched.
+     *
+     * <p>Filters live inside the LEFT JOIN's ON clause (not WHERE) so
+     * empty categories still appear with count(p.id)=0.</p>
      */
     public List<Object[]> categoryFacets(SearchCriteria c) {
-        StringBuilder where = new StringBuilder(" WHERE 1=1 ");
-        Args args = new Args();
+        String trimmedQ = trimToNull(c.q());
 
-        if (c.q() != null && !c.q().isBlank()) {
-            where.append(" AND p.search_tsv @@ plainto_tsquery('turkish', unaccent(:q)) ");
-            args.put("q", c.q().trim());
-        }
-        if (c.minPrice() != null) {
-            where.append(" AND p.price >= :minPrice ");
-            args.put("minPrice", c.minPrice());
-        }
-        if (c.maxPrice() != null) {
-            where.append(" AND p.price <= :maxPrice ");
-            args.put("maxPrice", c.maxPrice());
-        }
-        if (c.minRating() != null) {
-            where.append(" AND p.rating_average >= :minRating ");
-            args.put("minRating", c.minRating());
-        }
-        if (c.inStockOnly()) {
-            where.append(" AND p.stock > 0 ");
-        }
+        DynamicNativeQuery query = applyFacetFilters(
+                DynamicNativeQuery.extend(
+                        "SELECT c.id, c.name, count(p.id) "
+                        + "FROM categories c LEFT JOIN products p ON p.category_id = c.id"),
+                c, trimmedQ)
+                .append("GROUP BY c.id, c.name")
+                .append("ORDER BY count(p.id) DESC, c.name ASC");
 
-        String sql = "SELECT c.id, c.name, count(p.id) "
-                + "FROM categories c LEFT JOIN products p ON p.category_id = c.id "
-                + where.toString().replace("WHERE 1=1", "AND 1=1")
-                + " GROUP BY c.id, c.name ORDER BY count(p.id) DESC, c.name ASC ";
-        Query q = em.createNativeQuery(sql);
-        args.applyTo(q);
         @SuppressWarnings("unchecked")
-        List<Object[]> rows = q.getResultList();
+        List<Object[]> rows = query.toJpaQuery(em).getResultList();
         return rows;
     }
 
-    private String orderClause(SearchCriteria c) {
-        SearchSort sort = c.sort() == null ? SearchSort.RELEVANCE : c.sort();
-        return switch (sort) {
-            case RELEVANCE -> (c.q() != null && !c.q().isBlank())
+    /** Filters used by both search and facets — keep the lists in sync here, not at every call site. */
+    private DynamicNativeQuery applyCommonFilters(DynamicNativeQuery q, SearchCriteria c, String trimmedQ) {
+        return q
+                .whenPresent(trimmedQ,      "p.search_tsv @@ plainto_tsquery('turkish', unaccent(:q))", "q")
+                .whenPresent(c.minPrice(),  "p.price >= :minPrice",            "minPrice")
+                .whenPresent(c.maxPrice(),  "p.price <= :maxPrice",            "maxPrice")
+                .whenPresent(c.minRating(), "p.rating_average >= :minRating",  "minRating")
+                .whenTrue(c.inStockOnly(),  "p.stock > 0");
+    }
+
+    /** Search adds the categoryIds filter on top of the common ones. */
+    private DynamicNativeQuery applyFilters(DynamicNativeQuery q, SearchCriteria c, String trimmedQ) {
+        return applyCommonFilters(q, c, trimmedQ)
+                .whenPresent(c.categoryIds(), "p.category_id IN (:categoryIds)", "categoryIds");
+    }
+
+    /** Facet counts deliberately ignore categoryIds — the user wants to see the *other* categories. */
+    private DynamicNativeQuery applyFacetFilters(DynamicNativeQuery q, SearchCriteria c, String trimmedQ) {
+        return applyCommonFilters(q, c, trimmedQ);
+    }
+
+    private String orderClause(SearchSort sort, String trimmedQ) {
+        SearchSort effective = sort == null ? SearchSort.RELEVANCE : sort;
+        return switch (effective) {
+            case RELEVANCE -> trimmedQ != null
                     // ts_rank uses the same query expression as the WHERE clause
-                    ? " ORDER BY ts_rank(p.search_tsv, plainto_tsquery('turkish', unaccent(:q))) DESC, p.rating_count DESC "
+                    ? "ORDER BY ts_rank(p.search_tsv, plainto_tsquery('turkish', unaccent(:q))) DESC, p.rating_count DESC"
                     // No query → relevance falls back to popularity
-                    : " ORDER BY p.rating_count DESC, p.created_at DESC ";
-            case PRICE_ASC  -> " ORDER BY p.price ASC, p.id ASC ";
-            case PRICE_DESC -> " ORDER BY p.price DESC, p.id DESC ";
-            case RATING     -> " ORDER BY p.rating_average DESC, p.rating_count DESC ";
-            case NEWEST     -> " ORDER BY p.created_at DESC, p.id DESC ";
+                    : "ORDER BY p.rating_count DESC, p.created_at DESC";
+            case PRICE_ASC  -> "ORDER BY p.price ASC, p.id ASC";
+            case PRICE_DESC -> "ORDER BY p.price DESC, p.id DESC";
+            case RATING     -> "ORDER BY p.rating_average DESC, p.rating_count DESC";
+            case NEWEST     -> "ORDER BY p.created_at DESC, p.id DESC";
         };
+    }
+
+    private static String trimToNull(String s) {
+        if (s == null) return null;
+        String t = s.trim();
+        return t.isEmpty() ? null : t;
     }
 
     public record SearchCriteria(
@@ -153,11 +135,4 @@ public class ProductSearchRepository {
             boolean inStockOnly,
             SearchSort sort
     ) {}
-
-    /** Tiny holder so we apply the same parameter map to count + page queries. */
-    private static final class Args {
-        private final java.util.Map<String, Object> map = new java.util.LinkedHashMap<>();
-        void put(String k, Object v) { map.put(k, v); }
-        void applyTo(Query q) { map.forEach(q::setParameter); }
-    }
 }
