@@ -2,19 +2,27 @@ import { useEffect, useState } from 'react';
 import { api } from '../../api/client.js';
 import ProductCard from '../ProductCard.jsx';
 
-export default function ProductRail({ categorySlug, size = 6 }) {
+/**
+ * 3-column product grid used inside CampaignBlock — fits the 7/12 right
+ * column of the campaign layout. For the new long-scroll homepage shelves
+ * use {@link ProductShelf} instead, which exposes a mobile carousel + a
+ * 6-column desktop grid.
+ */
+export default function ProductRail({ categorySlug, sort, size = 6 }) {
   const [items, setItems] = useState([]);
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
     const params = new URLSearchParams({ size: String(size) });
     if (categorySlug) params.set('category', categorySlug);
+    if (sort && sort !== 'relevance') params.set('sort', sort);
+    setLoading(true);
     api
       .get(`/api/products?${params.toString()}`)
       .then((res) => setItems(res.data.content || []))
       .catch(() => setItems([]))
       .finally(() => setLoading(false));
-  }, [categorySlug, size]);
+  }, [categorySlug, sort, size]);
 
   if (loading) {
     return (
