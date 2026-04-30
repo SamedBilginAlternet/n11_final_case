@@ -41,8 +41,6 @@ public class IyzicoPaymentGateway implements PaymentGateway {
         CreatePaymentRequest request = new CreatePaymentRequest();
         request.setLocale(Locale.TR.getValue());
         request.setConversationId(UUID.randomUUID().toString());
-        request.setPrice(command.amount());
-        request.setPaidPrice(command.amount());
         request.setCurrency(command.currency());
         request.setInstallment(1);
         request.setBasketId(String.valueOf(command.orderId()));
@@ -79,6 +77,16 @@ public class IyzicoPaymentGateway implements PaymentGateway {
             return bi;
         }).toList();
         request.setBasketItems(basket);
+
+        // Iyzico contract: `price` must equal the sum of basket item prices
+        // (the list price), `paidPrice` is what the user actually pays after
+        // any coupon/campaign discounts. Setting both to the discounted total
+        // breaks the basket-sum validation as soon as a coupon is applied.
+        BigDecimal basketSum = basket.stream()
+                .map(BasketItem::getPrice)
+                .reduce(BigDecimal.ZERO, BigDecimal::add);
+        request.setPrice(basketSum);
+        request.setPaidPrice(command.amount());
 
         request.setBuyer(buildBuyer(command));
         request.setShippingAddress(buildAddress(command));
