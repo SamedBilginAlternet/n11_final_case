@@ -77,11 +77,13 @@ function AccountBlock({ user, isAuthed, onLogout }) {
   if (isAuthed) {
     return (
       <div className="flex items-center gap-2">
-        <User className="h-5 w-5 text-gray-500" strokeWidth={1.7} aria-hidden />
-        <div className="leading-tight">
-          <p className="text-[10px] font-semibold uppercase tracking-wide text-gray-500">Hesabım</p>
-          <p className="max-w-[140px] truncate text-sm font-semibold text-gray-800">{user?.fullName}</p>
-        </div>
+        <Link to="/account" className="flex items-center gap-2 hover:text-n11-pink">
+          <User className="h-5 w-5 text-gray-500" strokeWidth={1.7} aria-hidden />
+          <div className="leading-tight">
+            <p className="text-[10px] font-semibold uppercase tracking-wide text-gray-500">Profilim</p>
+            <p className="max-w-[140px] truncate text-sm font-semibold text-gray-800">{user?.fullName}</p>
+          </div>
+        </Link>
         <button onClick={onLogout} className="ml-2 text-xs text-gray-500 hover:text-n11-pink">
           Çıkış
         </button>

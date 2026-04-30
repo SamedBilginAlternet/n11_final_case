@@ -14,6 +14,7 @@ import CartPage from './pages/CartPage.jsx';
 import OrdersPage from './pages/OrdersPage.jsx';
 import AddressBookPage from './pages/AddressBookPage.jsx';
 import WishlistPage from './pages/WishlistPage.jsx';
+import ProfilePage from './pages/ProfilePage.jsx';
 
 export default function App() {
   return (
@@ -40,6 +41,14 @@ export default function App() {
             element={
               <ProtectedRoute>
                 <OrdersPage />
+              </ProtectedRoute>
+            }
+          />
+          <Route
+            path="/account"
+            element={
+              <ProtectedRoute>
+                <ProfilePage />
               </ProtectedRoute>
             }
           />
