@@ -12,6 +12,7 @@ import ProductListPage from './pages/ProductListPage.jsx';
 import ProductDetailPage from './pages/ProductDetailPage.jsx';
 import CartPage from './pages/CartPage.jsx';
 import OrdersPage from './pages/OrdersPage.jsx';
+import CheckoutProcessingPage from './pages/CheckoutProcessingPage.jsx';
 import AddressBookPage from './pages/AddressBookPage.jsx';
 import WishlistPage from './pages/WishlistPage.jsx';
 import ProfilePage from './pages/ProfilePage.jsx';
@@ -41,6 +42,14 @@ export default function App() {
             element={
               <ProtectedRoute>
                 <OrdersPage />
+              </ProtectedRoute>
+            }
+          />
+          <Route
+            path="/checkout/processing/:id"
+            element={
+              <ProtectedRoute>
+                <CheckoutProcessingPage />
               </ProtectedRoute>
             }
           />

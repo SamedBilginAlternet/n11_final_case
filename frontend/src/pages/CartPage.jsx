@@ -54,9 +54,8 @@ export default function CartPage() {
         addressId: selectedAddressId,
         card,
       });
-      toast.success(`Siparişin oluşturuldu (#${data.id})`);
       clearLocal();
-      navigate('/orders');
+      navigate(`/checkout/processing/${data.id}`, { replace: true });
     } catch (err) {
       toast.error(err.response?.data?.message || 'Ödeme başarısız');
     } finally {
