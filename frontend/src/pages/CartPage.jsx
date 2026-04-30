@@ -8,7 +8,7 @@ import { useCart } from '../state/CartContext.jsx';
 import { formatCurrency } from '../utils/format.js';
 
 export default function CartPage() {
-  const { cart, refresh, updateQuantity, removeItem, applyCoupon, clearCoupon, isGuest } = useCart();
+  const { cart, refresh, updateQuantity, removeItem, applyCoupon, clearCoupon, clearLocal, isGuest } = useCart();
   const { isAuthed } = useAuth();
   const [checkoutLoading, setCheckoutLoading] = useState(false);
   const [couponInput, setCouponInput] = useState('');
@@ -46,7 +46,7 @@ export default function CartPage() {
     try {
       const { data } = await api.post('/api/orders/checkout', { addressId: selectedAddressId });
       toast.success(`Siparişin oluşturuldu (#${data.id})`);
-      await refresh();
+      clearLocal();
       navigate('/orders');
     } catch (err) {
       toast.error(err.response?.data?.message || 'Ödeme başarısız');

@@ -177,6 +177,16 @@ export function CartProvider({ children }) {
     toast('Kupon kaldırıldı');
   }, [isAuthed]);
 
+  // Server clears the cart asynchronously via the saga (OrderConfirmed event),
+  // which lands after the checkout HTTP response returns. Wiping local state
+  // immediately keeps the UI honest; the next refresh will agree once the
+  // saga completes. If payment fails, the user sees the order CANCELLED in
+  // /orders and re-adds the items they want.
+  const clearLocal = useCallback(() => {
+    setCart(EMPTY_CART);
+    if (!isAuthed) clearGuestCart();
+  }, [isAuthed]);
+
   return (
     <CartContext.Provider
       value={{
@@ -188,6 +198,7 @@ export function CartProvider({ children }) {
         removeItem,
         applyCoupon,
         clearCoupon,
+        clearLocal,
         isGuest: !isAuthed,
       }}
     >
