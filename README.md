@@ -280,22 +280,29 @@ ideal.
 
 #### Production — Resend (kendi domain'inle gerçek mail)
 
-1. **Domain ekle**: [resend.com](https://resend.com) dashboard → **Domains** → **Add Domain** → `send.samedbilgin.com` (kendi apex'ini reputation'dan korumak için subdomain önerilir; MX gerekmez)
-2. Resend'in verdiği DNS kayıtlarını ekle (DNS provider'ında):
-   - SPF (TXT): `v=spf1 include:_spf.resend.com ~all`
-   - DKIM (TXT, üç kayıt): Resend dashboard'da kopyala-yapıştır
-   - DMARC (opsiyonel): `v=DMARC1; p=none; rua=mailto:postmaster@samedbilgin.com`
-3. 5–30 dk DNS propagation, **Verify** → yeşil tik
+1. **Root domain ekle**: [resend.com](https://resend.com) dashboard → **Domains** → **Add Domain** → `samedbilgin.com` (apex). Resend bu domain için DKIM'i root'a, SPF + MX'i otomatik olarak `send` subdomain'ine yerleştirir; sen subdomain eklemezsin.
+2. Resend'in panelde gösterdiği üç DNS kaydını ekle (kopyala-yapıştır, **başlarına boşluk koyma**):
+   - DKIM (TXT, name `resend._domainkey`): uzun `p=...` public key
+   - SPF (TXT, name `send`): `v=spf1 include:amazonses.com ~all`
+   - MX (name `send`): `feedback-smtp.eu-west-1.amazonses.com` priority 10
+3. 5–30 dk DNS propagation, **Verify** → "Domain verified: Your domain is ready to send emails."
 4. **API key** üret: dashboard → API Keys → Full access scope
 5. `.env`'e ekle:
    ```bash
    SMTP_HOST=smtp.resend.com
-   SMTP_PORT=587
+   # DigitalOcean (ve bazı VPS sağlayıcıları) outbound port 587'yi yeni
+   # hesaplarda belirli bir süre/kullanım eşiğine kadar bloke ediyor.
+   # Bloke ise Resend alternatif olarak 2587 (STARTTLS) sunar — ilk
+   # deploy'da `nc -zv smtp.resend.com 587` çek, timeout dönüyorsa 2587'ye geç.
+   SMTP_PORT=2587
    SMTP_USERNAME=resend
    SMTP_PASSWORD=re_xxxxxxxxxxxxxxxx     # API key as password
    SMTP_AUTH=true
    SMTP_STARTTLS=true
-   MAIL_FROM_ADDRESS=no-reply@send.samedbilgin.com
+   # From adresi VERIFIED root domain'de olmak zorunda. `send.` subdomain
+   # sadece envelope (Return-Path) için — header From'da kullanırsan
+   # Resend "550 domain not verified" döner.
+   MAIL_FROM_ADDRESS=no-reply@samedbilgin.com
    MAIL_FROM_NAME=n11 Sipariş
    ```
 6. Production compose default'ta zaten Resend ayarlı —

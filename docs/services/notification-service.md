@@ -115,7 +115,11 @@ Aynı kod, env değişimi ile farklı SMTP backend:
 | Mode | SMTP_HOST | SMTP_PORT | AUTH | STARTTLS |
 |---|---|---|---|---|
 | Local dev (MailHog) | `mailhog` | `1025` | false | false |
-| Production (Resend) | `smtp.resend.com` | `587` | true | true |
+| Production (Resend) | `smtp.resend.com` | `587` (DO'da bloke ise `2587`) | true | true |
+
+> **DO outbound 587 ban**: DigitalOcean yeni droplet'larda port 587 kapalı.
+> `nc -zv smtp.resend.com 587` timeout dönüyorsa `SMTP_PORT=2587` ile yeniden
+> dene — Resend her iki portu da STARTTLS ile destekler.
 
 ### MailHog (Dev)
 
@@ -130,8 +134,18 @@ yakalanır. Demo için ideal.
 
 ### Resend (Prod)
 
-`smtp.resend.com:587` STARTTLS. Username `"resend"`, password = API key (`re_xxx...`). Sender
-domain (`send.samedbilgin.com`) DNS'inde DKIM/SPF kayıtları gerekir.
+`smtp.resend.com:587` (veya `2587`) STARTTLS. Username `"resend"`, password = API key
+(`re_xxx...`).
+
+**Domain doğrulaması**: Resend dashboard'da **root domain** (`samedbilgin.com`)
+ekleniyor. Panel üç kaydı veriyor: DKIM (root'ta `resend._domainkey` TXT),
+SPF (`send` TXT, `include:amazonses.com`), MX (`send` MX `feedback-smtp....amazonses.com`).
+`send` subdomain'i Resend'in envelope/Return-Path için kullandığı bounce hattı —
+manuel domain olarak EKLEME, root verify'lendiğinde otomatik aktif olur.
+
+`MAIL_FROM_ADDRESS` **root domain'de** olmak zorunda (`no-reply@samedbilgin.com`).
+`@send.samedbilgin.com` koyarsan Resend `550 domain not verified` döner çünkü
+header From için verified olan root'tur, `send.` değil.
 
 Kod tarafı **hiç değişmez**. JavaMailSender STARTTLS upgrade'i Spring Boot'un default
 implementation'ı handle ediyor.
