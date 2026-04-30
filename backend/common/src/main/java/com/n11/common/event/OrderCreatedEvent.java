@@ -19,7 +19,12 @@ public record OrderCreatedEvent(
         // Carried only so payment-service can forward to the gateway. Never
         // persisted on either side. Nullable so older producers stay compatible
         // and so the mock gateway path still works without a card.
-        CardData card
+        CardData card,
+        // Snapshot of the shipping address + recipient captured at checkout
+        // so payment-service can build a complete Iyzico request without
+        // calling back to the user/address service. Nullable for backward
+        // compatibility with older events.
+        BuyerData buyer
 ) {
     public static OrderCreatedEvent of(Long orderId,
                                        Long userId,
@@ -29,7 +34,8 @@ public record OrderCreatedEvent(
                                        List<OrderItemPayload> items,
                                        String couponCode,
                                        String correlationId,
-                                       CardData card) {
+                                       CardData card,
+                                       BuyerData buyer) {
         return new OrderCreatedEvent(
                 UUID.randomUUID(),
                 Instant.now(),
@@ -41,7 +47,8 @@ public record OrderCreatedEvent(
                 items,
                 couponCode,
                 correlationId,
-                card
+                card,
+                buyer
         );
     }
 
@@ -51,5 +58,14 @@ public record OrderCreatedEvent(
             String expireMonth,
             String expireYear,
             String cvc
+    ) {}
+
+    public record BuyerData(
+            String recipientName,
+            String phone,
+            String line1,
+            String city,
+            String district,
+            String postalCode
     ) {}
 }

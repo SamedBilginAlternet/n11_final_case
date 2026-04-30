@@ -12,6 +12,8 @@ import com.iyzipay.model.PaymentCard;
 import com.iyzipay.model.Status;
 import com.iyzipay.request.CreatePaymentRequest;
 import com.n11.payment.config.PaymentProperties;
+import com.n11.payment.gateway.PaymentGateway.BuyerData;
+import com.n11.payment.gateway.PaymentGateway.ChargeCommand;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.boot.autoconfigure.condition.ConditionalOnProperty;
 import org.springframework.stereotype.Component;
@@ -78,10 +80,6 @@ public class IyzicoPaymentGateway implements PaymentGateway {
         }).toList();
         request.setBasketItems(basket);
 
-        // Iyzico requires buyer + shipping/billing addresses. The shop doesn't
-        // currently pipe full address data through the saga, so we synthesise
-        // sandbox-acceptable placeholders from what we have (userId, email,
-        // card holder). Sandbox doesn't validate realism — only presence.
         request.setBuyer(buildBuyer(command));
         request.setShippingAddress(buildAddress(command));
         request.setBillingAddress(buildAddress(command));
@@ -102,38 +100,42 @@ public class IyzicoPaymentGateway implements PaymentGateway {
     }
 
     private Buyer buildBuyer(ChargeCommand command) {
-        String holder = command.card() != null && command.card().holderName() != null
-                ? command.card().holderName().trim()
-                : "n11 Customer";
-        String[] parts = holder.split("\\s+", 2);
+        BuyerData b = command.buyer();
+        if (b == null) {
+            throw new IllegalArgumentException("Iyzico charge requires buyer data (recipient + shipping address)");
+        }
+        String[] parts = b.recipientName() == null ? new String[]{"n11", "Customer"} : b.recipientName().trim().split("\\s+", 2);
         String name = parts[0].isBlank() ? "n11" : parts[0];
-        String surname = parts.length > 1 && !parts[1].isBlank() ? parts[1] : "Customer";
+        String surname = parts.length > 1 && !parts[1].isBlank() ? parts[1] : name;
 
         Buyer buyer = new Buyer();
         buyer.setId(String.valueOf(command.userId()));
         buyer.setName(name);
         buyer.setSurname(surname);
-        buyer.setGsmNumber("+905350000000");
-        buyer.setEmail(command.userEmail() != null ? command.userEmail() : "buyer@n11.local");
+        buyer.setGsmNumber(b.phone());
+        buyer.setEmail(command.userEmail());
+        // We don't collect TC kimlik in the shop; sandbox accepts this and a
+        // real integration would either store it on the user profile or
+        // capture it at checkout per Iyzico KYC flow.
         buyer.setIdentityNumber("11111111111");
-        buyer.setRegistrationAddress("Nidakule Goztepe, Merdivenkoy Mah. Bora Sok. No:1");
-        buyer.setIp("85.34.78.112");
-        buyer.setCity("Istanbul");
+        buyer.setRegistrationAddress(b.line1());
+        // Same: we don't propagate the request IP through the saga. Real
+        // integration would forward the X-Forwarded-For from the gateway.
+        buyer.setIp("0.0.0.0");
+        buyer.setCity(b.city());
         buyer.setCountry("Turkey");
-        buyer.setZipCode("34732");
+        buyer.setZipCode(b.postalCode());
         return buyer;
     }
 
     private Address buildAddress(ChargeCommand command) {
-        String holder = command.card() != null && command.card().holderName() != null
-                ? command.card().holderName().trim()
-                : "n11 Customer";
+        BuyerData b = command.buyer();
         Address address = new Address();
-        address.setContactName(holder.isBlank() ? "n11 Customer" : holder);
-        address.setCity("Istanbul");
+        address.setContactName(b.recipientName());
+        address.setCity(b.city());
         address.setCountry("Turkey");
-        address.setAddress("Nidakule Goztepe, Merdivenkoy Mah. Bora Sok. No:1");
-        address.setZipCode("34732");
+        address.setAddress(b.line1());
+        address.setZipCode(b.postalCode());
         return address;
     }
 }

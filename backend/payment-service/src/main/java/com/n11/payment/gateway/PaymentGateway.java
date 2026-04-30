@@ -18,7 +18,10 @@ public interface PaymentGateway {
             List<OrderItemPayload> items,
             // Nullable: when null the gateway should fall back to its own
             // (sandbox) default card. The mock gateway ignores this entirely.
-            CardData card
+            CardData card,
+            // Nullable: when null Iyzico will reject the charge for missing
+            // buyer; the mock gateway ignores it.
+            BuyerData buyer
     ) {}
 
     record CardData(
@@ -27,6 +30,15 @@ public interface PaymentGateway {
             String expireMonth,
             String expireYear,
             String cvc
+    ) {}
+
+    record BuyerData(
+            String recipientName,
+            String phone,
+            String line1,
+            String city,
+            String district,
+            String postalCode
     ) {}
 
     record PaymentChargeResult(

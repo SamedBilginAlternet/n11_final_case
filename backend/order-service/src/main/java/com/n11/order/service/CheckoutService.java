@@ -75,9 +75,12 @@ public class CheckoutService {
                 .toList();
         OrderCreatedEvent.CardData cardPayload = card == null ? null : new OrderCreatedEvent.CardData(
                 card.holderName(), card.number(), card.expireMonth(), card.expireYear(), card.cvc());
+        OrderCreatedEvent.BuyerData buyerPayload = new OrderCreatedEvent.BuyerData(
+                address.recipientName(), address.phone(), address.line1(),
+                address.city(), address.district(), address.postalCode());
         OrderCreatedEvent event = OrderCreatedEvent.of(
                 saved.getId(), userId, userEmail, saved.getTotalAmount(), saved.getCurrency(),
-                payloadItems, saved.getCouponCode(), correlationId, cardPayload);
+                payloadItems, saved.getCouponCode(), correlationId, cardPayload, buyerPayload);
 
         TransactionSynchronizationManager.registerSynchronization(new TransactionSynchronization() {
             @Override

@@ -40,6 +40,14 @@ public class PaymentService {
                 order.card().expireYear(),
                 order.card().cvc()
         );
+        PaymentGateway.BuyerData buyerData = order.buyer() == null ? null : new PaymentGateway.BuyerData(
+                order.buyer().recipientName(),
+                order.buyer().phone(),
+                order.buyer().line1(),
+                order.buyer().city(),
+                order.buyer().district(),
+                order.buyer().postalCode()
+        );
         var command = new PaymentGateway.ChargeCommand(
                 order.orderId(),
                 order.userId(),
@@ -47,7 +55,8 @@ public class PaymentService {
                 order.totalAmount(),
                 order.currency(),
                 order.items(),
-                cardData
+                cardData,
+                buyerData
         );
 
         var result = gateway.charge(command);
