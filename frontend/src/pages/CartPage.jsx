@@ -9,7 +9,7 @@ import { formatCurrency } from '../utils/format.js';
 import CardForm, { EMPTY_CARD, isCardComplete } from '../components/checkout/CardForm.jsx';
 
 export default function CartPage() {
-  const { cart, refresh, updateQuantity, removeItem, applyCoupon, clearCoupon, clearLocal, isGuest } = useCart();
+  const { cart, updateQuantity, removeItem, applyCoupon, clearCoupon, clearLocal, isGuest } = useCart();
   const { isAuthed } = useAuth();
   const [checkoutLoading, setCheckoutLoading] = useState(false);
   const [couponInput, setCouponInput] = useState('');
