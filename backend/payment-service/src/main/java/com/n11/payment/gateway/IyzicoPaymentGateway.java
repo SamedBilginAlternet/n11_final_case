@@ -1,8 +1,10 @@
 package com.n11.payment.gateway;
 
 import com.iyzipay.Options;
+import com.iyzipay.model.Address;
 import com.iyzipay.model.BasketItem;
 import com.iyzipay.model.BasketItemType;
+import com.iyzipay.model.Buyer;
 import com.iyzipay.model.Locale;
 import com.iyzipay.model.Payment;
 import com.iyzipay.model.PaymentChannel;
@@ -76,6 +78,14 @@ public class IyzicoPaymentGateway implements PaymentGateway {
         }).toList();
         request.setBasketItems(basket);
 
+        // Iyzico requires buyer + shipping/billing addresses. The shop doesn't
+        // currently pipe full address data through the saga, so we synthesise
+        // sandbox-acceptable placeholders from what we have (userId, email,
+        // card holder). Sandbox doesn't validate realism — only presence.
+        request.setBuyer(buildBuyer(command));
+        request.setShippingAddress(buildAddress(command));
+        request.setBillingAddress(buildAddress(command));
+
         try {
             Payment payment = Payment.create(request, options);
             if (Status.SUCCESS.getValue().equalsIgnoreCase(payment.getStatus())) {
@@ -89,5 +99,41 @@ public class IyzicoPaymentGateway implements PaymentGateway {
             log.error("Iyzico charge exception orderId={}", command.orderId(), ex);
             return PaymentChargeResult.failure("Gateway exception: " + ex.getMessage());
         }
+    }
+
+    private Buyer buildBuyer(ChargeCommand command) {
+        String holder = command.card() != null && command.card().holderName() != null
+                ? command.card().holderName().trim()
+                : "n11 Customer";
+        String[] parts = holder.split("\\s+", 2);
+        String name = parts[0].isBlank() ? "n11" : parts[0];
+        String surname = parts.length > 1 && !parts[1].isBlank() ? parts[1] : "Customer";
+
+        Buyer buyer = new Buyer();
+        buyer.setId(String.valueOf(command.userId()));
+        buyer.setName(name);
+        buyer.setSurname(surname);
+        buyer.setGsmNumber("+905350000000");
+        buyer.setEmail(command.userEmail() != null ? command.userEmail() : "buyer@n11.local");
+        buyer.setIdentityNumber("11111111111");
+        buyer.setRegistrationAddress("Nidakule Goztepe, Merdivenkoy Mah. Bora Sok. No:1");
+        buyer.setIp("85.34.78.112");
+        buyer.setCity("Istanbul");
+        buyer.setCountry("Turkey");
+        buyer.setZipCode("34732");
+        return buyer;
+    }
+
+    private Address buildAddress(ChargeCommand command) {
+        String holder = command.card() != null && command.card().holderName() != null
+                ? command.card().holderName().trim()
+                : "n11 Customer";
+        Address address = new Address();
+        address.setContactName(holder.isBlank() ? "n11 Customer" : holder);
+        address.setCity("Istanbul");
+        address.setCountry("Turkey");
+        address.setAddress("Nidakule Goztepe, Merdivenkoy Mah. Bora Sok. No:1");
+        address.setZipCode("34732");
+        return address;
     }
 }
