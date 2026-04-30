@@ -23,7 +23,7 @@ public class OAuth2ClientConfig {
             registrations.add(CommonOAuth2Provider.GOOGLE.getBuilder("google")
                     .clientId(props.google().clientId())
                     .clientSecret(props.google().clientSecret())
-                    .redirectUri("{baseUrl}/api/auth/oauth2/callback/{registrationId}")
+                    .redirectUri(props.redirectUriTemplate())
                     .build());
         }
 

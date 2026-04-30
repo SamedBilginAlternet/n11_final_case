@@ -30,6 +30,10 @@ n11:
     frontend-base-url: ${FRONTEND_BASE_URL:http://localhost:3000}
     success-path: /auth/callback
     failure-path: /login
+    # Default uses {baseUrl} (derived from request scheme/host) — fine for local
+    # dev. In prod, set OAUTH2_REDIRECT_URI_TEMPLATE to an explicit https URL so
+    # we don't depend on X-Forwarded-Proto surviving every proxy hop.
+    redirect-uri-template: ${OAUTH2_REDIRECT_URI_TEMPLATE:{baseUrl}/api/auth/oauth2/callback/{registrationId}}
     google:
       client-id: ${GOOGLE_CLIENT_ID:}
       client-secret: ${GOOGLE_CLIENT_SECRET:}
