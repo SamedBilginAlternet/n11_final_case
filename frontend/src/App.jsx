@@ -22,7 +22,7 @@ export default function App() {
   return (
     <div className="flex min-h-full flex-col bg-gray-50">
       <Header />
-      <main className="mx-auto w-full max-w-7xl flex-1 px-4 py-6">
+      <main className="mx-auto w-full max-w-7xl flex-1 px-3 py-4 md:px-4 md:py-6">
         <Routes>
           <Route path="/" element={<HomePage />} />
           <Route path="/catalog" element={<ProductListPage />} />

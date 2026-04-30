@@ -67,12 +67,12 @@ export default function CheckoutPage() {
   }
 
   return (
-    <div className="space-y-6">
-      <header className="card p-4 sm:p-6">
+    <div className="space-y-4 md:space-y-6">
+      <header className="card p-3 sm:p-6">
         <CheckoutStepper steps={STEPS} current={step} onJump={setStep} />
       </header>
 
-      <div className="grid gap-6 lg:grid-cols-[1fr_360px]">
+      <div className="grid gap-4 lg:grid-cols-[1fr_360px] lg:gap-6">
         <section className="space-y-4">
           {step === 0 && (
             <StepCard

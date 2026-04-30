@@ -61,19 +61,19 @@ export default function ProductDetailPage() {
 
       <div className="space-y-4">
         <p className="text-xs uppercase tracking-wider text-gray-400">{product.categoryName}</p>
-        <h1 className="text-2xl font-semibold tracking-tight">{product.name}</h1>
+        <h1 className="text-xl font-semibold tracking-tight md:text-2xl">{product.name}</h1>
 
         <RatingStars value={product.ratingAverage} count={product.ratingCount} size="md" />
 
         <div>
           <p className="text-sm text-gray-400 line-through">{formatCurrency(oldPrice, product.currency)}</p>
-          <div className="flex items-baseline gap-3">
+          <div className="flex flex-wrap items-baseline gap-x-3 gap-y-1">
             <span className="text-xs font-bold uppercase tracking-wider text-n11-pink">SEPETTE</span>
-            <span className="text-3xl font-extrabold text-n11-black">{formatCurrency(product.price, product.currency)}</span>
+            <span className="text-2xl font-extrabold text-n11-black sm:text-3xl">{formatCurrency(product.price, product.currency)}</span>
           </div>
         </div>
 
-        <p className="leading-relaxed text-gray-600">{product.description}</p>
+        <p className="text-sm leading-relaxed text-gray-600 md:text-base">{product.description}</p>
 
         <div className="flex items-center gap-3">
           <span className={inStock ? 'text-sm text-emerald-600' : 'text-sm text-red-500'}>
@@ -81,16 +81,16 @@ export default function ProductDetailPage() {
           </span>
         </div>
 
-        <div className="flex flex-wrap items-center gap-3">
+        <div className="flex flex-wrap items-stretch gap-2 sm:gap-3">
           <input
             type="number"
             min={1}
             max={Math.max(1, product.stock)}
             value={quantity}
             onChange={(e) => setQuantity(Math.max(1, Number(e.target.value)))}
-            className="input w-24"
+            className="input w-20 sm:w-24"
           />
-          <button onClick={onAddToCart} disabled={!inStock || adding} className="btn-primary">
+          <button onClick={onAddToCart} disabled={!inStock || adding} className="btn-primary flex-1 sm:flex-none">
             {adding ? 'Ekleniyor…' : 'Sepete Ekle'}
           </button>
           <button
@@ -98,7 +98,7 @@ export default function ProductDetailPage() {
             onClick={() => toggleWishlist(product.id)}
             aria-pressed={isFavourite(product.id)}
             aria-label={isFavourite(product.id) ? 'Favorilerden çıkar' : 'Favorilere ekle'}
-            className={`inline-flex items-center gap-2 rounded-md border px-4 py-2 text-sm font-medium transition ${
+            className={`inline-flex w-full items-center justify-center gap-2 rounded-md border px-4 py-2 text-sm font-medium transition sm:w-auto ${
               isFavourite(product.id)
                 ? 'border-n11-pink bg-n11-pink/10 text-n11-pink hover:bg-n11-pink/15'
                 : 'border-gray-300 text-gray-700 hover:border-n11-pink hover:text-n11-pink'

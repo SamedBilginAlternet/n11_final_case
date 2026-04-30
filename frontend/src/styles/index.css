@@ -12,7 +12,9 @@ body {
 
 @layer components {
   .btn {
-    @apply inline-flex items-center justify-center rounded-md px-4 py-2 text-sm font-medium
+    /* min-h-11 ≈ 44px keeps tap targets above the iOS HIG / Material minimum
+       on mobile without making desktop buttons feel oversized. */
+    @apply inline-flex min-h-11 items-center justify-center rounded-md px-4 py-2 text-sm font-medium
            transition-colors disabled:opacity-50 disabled:cursor-not-allowed;
   }
   .btn-primary {
