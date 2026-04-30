@@ -6,15 +6,15 @@ export default function Pagination({ page, totalPages, totalElements, onChange }
   for (let i = start; i < end; i += 1) pages.push(i);
 
   return (
-    <nav className="flex items-center justify-between border-t border-gray-200 pt-4">
-      <p className="text-sm text-gray-500">
+    <nav className="flex flex-col gap-3 border-t border-gray-200 pt-4 sm:flex-row sm:items-center sm:justify-between">
+      <p className="text-xs text-gray-500 sm:text-sm">
         Toplam <strong className="text-gray-700">{totalElements}</strong> ürün — sayfa {page + 1}/{totalPages}
       </p>
-      <div className="flex gap-2">
+      <div className="flex flex-wrap justify-end gap-1.5 sm:gap-2">
         <button
           onClick={() => onChange(Math.max(0, page - 1))}
           disabled={page === 0}
-          className="btn-outline"
+          className="btn-outline px-3 text-xs sm:text-sm"
         >
           Önceki
         </button>
@@ -22,7 +22,7 @@ export default function Pagination({ page, totalPages, totalElements, onChange }
           <button
             key={p}
             onClick={() => onChange(p)}
-            className={`btn ${p === page ? 'bg-n11-pink text-white' : 'border border-gray-300 bg-white text-gray-700 hover:bg-gray-50'}`}
+            className={`btn min-w-[40px] px-2.5 text-xs sm:text-sm ${p === page ? 'bg-n11-pink text-white' : 'border border-gray-300 bg-white text-gray-700 hover:bg-gray-50'}`}
           >
             {p + 1}
           </button>
@@ -30,7 +30,7 @@ export default function Pagination({ page, totalPages, totalElements, onChange }
         <button
           onClick={() => onChange(Math.min(totalPages - 1, page + 1))}
           disabled={page >= totalPages - 1}
-          className="btn-outline"
+          className="btn-outline px-3 text-xs sm:text-sm"
         >
           Sonraki
         </button>

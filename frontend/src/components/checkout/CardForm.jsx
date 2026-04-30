@@ -19,8 +19,8 @@ export default function CardForm({ value, onChange, disabled }) {
   }
 
   return (
-    <div className="grid gap-4 lg:grid-cols-[auto_1fr] lg:items-start">
-      <div className="mx-auto lg:mx-0">
+    <div className="grid gap-4 md:grid-cols-[280px_1fr] md:items-start">
+      <div className="mx-auto md:mx-0">
         <Cards
           number={value.number}
           name={value.holderName}
@@ -28,7 +28,7 @@ export default function CardForm({ value, onChange, disabled }) {
           cvc={value.cvc}
           focused={focus}
         />
-        <p className="mt-2 text-center text-[11px] text-gray-400 lg:text-left">
+        <p className="mt-2 text-center text-[11px] text-gray-400 md:text-left">
           Sandbox kartı: {SANDBOX_HINT}
         </p>
       </div>

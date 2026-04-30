@@ -193,7 +193,7 @@ function NavButtons({ step, canProceed, submitting, onBack, onNext }) {
 
 function SummaryCard({ cart }) {
   return (
-    <div className="card sticky top-4 space-y-4 p-4">
+    <div className="card space-y-4 p-4 lg:sticky lg:top-4">
       <h3 className="text-sm font-semibold text-gray-700">Sipariş Özeti</h3>
       <ul className="space-y-2 text-sm">
         {cart.items.map((item) => (

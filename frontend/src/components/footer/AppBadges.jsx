@@ -19,7 +19,7 @@ const BADGES = [
 
 export default function AppBadges() {
   return (
-    <div className="flex items-center gap-3">
+    <div className="flex flex-wrap items-center gap-2 sm:gap-3">
       {BADGES.map(({ id, href, Icon, line1, line2 }) => (
         <a
           key={id}

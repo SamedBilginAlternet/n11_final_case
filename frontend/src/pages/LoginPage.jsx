@@ -40,8 +40,8 @@ export default function LoginPage() {
   }
 
   return (
-    <div className="mx-auto mt-12 max-w-md p-6">
-      <div className="card p-6">
+    <div className="mx-auto mt-6 max-w-md p-3 sm:mt-12 sm:p-6">
+      <div className="card p-4 sm:p-6">
         <h1 className="text-xl font-semibold">Giriş Yap</h1>
         <p className="mt-1 text-sm text-gray-500">Hesabına giriş yaparak alışverişe devam et.</p>
 

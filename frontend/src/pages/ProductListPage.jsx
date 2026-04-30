@@ -96,7 +96,7 @@ export default function ProductListPage() {
         {error && <p className="rounded bg-red-50 p-3 text-sm text-red-600">{error}</p>}
 
         {loading ? (
-          <div className="grid grid-cols-2 gap-4 sm:grid-cols-3 xl:grid-cols-4">
+          <div className="grid grid-cols-2 gap-3 sm:gap-4 md:grid-cols-3 xl:grid-cols-4">
             {Array.from({ length: PAGE_SIZE }).map((_, i) => (
               <div key={i} className="card h-72 animate-pulse bg-gray-100" />
             ))}
@@ -107,7 +107,7 @@ export default function ProductListPage() {
             <p className="mt-1 text-xs text-gray-400">Filtreleri biraz gevşetmeyi dene.</p>
           </div>
         ) : (
-          <div className="grid grid-cols-2 gap-4 sm:grid-cols-3 xl:grid-cols-4">
+          <div className="grid grid-cols-2 gap-3 sm:gap-4 md:grid-cols-3 xl:grid-cols-4">
             {data.content.map((product) => (
               <ProductCard key={product.id} product={product} />
             ))}

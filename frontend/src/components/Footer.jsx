@@ -14,7 +14,7 @@ export default function Footer() {
         <SeoText />
         <FeatureStrip />
 
-        <div className="grid grid-cols-2 gap-6 lg:grid-cols-5">
+        <div className="grid grid-cols-2 gap-6 md:grid-cols-3 lg:grid-cols-5">
           {footerColumns.map((col) => (
             <FooterLinkColumn key={col.id} column={col} />
           ))}
@@ -22,7 +22,7 @@ export default function Footer() {
         </div>
 
         <div className="border-t border-gray-200 pt-4">
-          <div className="flex flex-wrap items-center justify-between gap-6">
+          <div className="flex flex-wrap items-center justify-between gap-3 sm:gap-6">
             <AppBadges />
             <SocialIcons />
             <SecurityLogos />

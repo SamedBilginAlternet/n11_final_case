@@ -14,7 +14,7 @@ export default function CategoryNav() {
           <li key={slug} className="flex-shrink-0">
             <Link
               to={slug === 'super-firsatlar' ? '/catalog' : `/catalog?category=${slug}`}
-              className="group flex w-[68px] flex-col items-center gap-1 px-1 py-2 text-center transition-colors hover:bg-n11-pinkBg md:w-24 md:gap-1.5 md:px-2 md:py-3"
+              className="group flex min-h-[56px] w-[68px] flex-col items-center justify-center gap-1 px-1 py-2.5 text-center transition-colors hover:bg-n11-pinkBg md:w-24 md:gap-1.5 md:px-2 md:py-3"
             >
               <Icon
                 size={20}

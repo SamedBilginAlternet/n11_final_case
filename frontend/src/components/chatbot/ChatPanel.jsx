@@ -34,7 +34,7 @@ export default function ChatPanel() {
           animate={{ opacity: 1, y: 0, scale: 1 }}
           exit={{ opacity: 0, y: 24, scale: 0.92 }}
           transition={{ type: 'spring', stiffness: 320, damping: 26 }}
-          className="fixed bottom-24 right-6 z-40 flex h-[480px] w-80 origin-bottom-right flex-col overflow-hidden rounded-2xl border border-gray-200 bg-white shadow-2xl md:w-96"
+          className="fixed bottom-24 right-3 z-40 flex h-[min(480px,calc(100vh-160px))] w-[calc(100vw-24px)] max-w-sm origin-bottom-right flex-col overflow-hidden rounded-2xl border border-gray-200 bg-white shadow-2xl sm:right-6 md:w-96 md:max-w-none"
         >
           <Header />
 

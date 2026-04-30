@@ -89,7 +89,7 @@ export default function CartPage() {
         ))}
       </div>
 
-      <aside className="card sticky top-4 h-fit space-y-4 p-4">
+      <aside className="card h-fit space-y-4 p-4 lg:sticky lg:top-4">
         <h2 className="text-lg font-semibold">Sipariş Özeti</h2>
 
         {isGuest ? (

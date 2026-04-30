@@ -23,8 +23,8 @@ export default function RegisterPage() {
   }
 
   return (
-    <div className="mx-auto mt-12 max-w-md p-6">
-      <div className="card p-6">
+    <div className="mx-auto mt-6 max-w-md p-3 sm:mt-12 sm:p-6">
+      <div className="card p-4 sm:p-6">
         <h1 className="text-xl font-semibold">Kayıt Ol</h1>
         <form onSubmit={onSubmit} className="mt-6 space-y-4">
           <div>

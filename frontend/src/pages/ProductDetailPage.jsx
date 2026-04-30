@@ -50,7 +50,7 @@ export default function ProductDetailPage() {
 
   return (
     <div className="space-y-8">
-    <div className="grid gap-6 lg:grid-cols-2">
+    <div className="grid gap-4 md:gap-6 md:grid-cols-2">
       <div className="card overflow-hidden">
         {product.imageUrl ? (
           <img src={product.imageUrl} alt={product.name} className="aspect-square w-full object-cover" />
