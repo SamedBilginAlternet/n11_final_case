@@ -1,3 +1,14 @@
+import {
+  Baby,
+  BookOpen,
+  Dumbbell,
+  Flame,
+  Leaf,
+  Palette,
+  Shirt,
+  Smartphone,
+  Sparkles,
+} from 'lucide-react';
 import HeroSection from '../components/hero/HeroSection.jsx';
 import HomeSection from '../components/home/HomeSection.jsx';
 import CampaignBlock from '../components/campaign/CampaignBlock.jsx';
@@ -17,7 +28,7 @@ export default function HomePage() {
       <HomeSection
         title="Yenilikler"
         subtitle="Yeni eklenen ürünler"
-        emoji="✨"
+        icon={Sparkles}
         sort="newest"
         size={6}
         viewAllHref="/catalog?sort=newest"
@@ -27,7 +38,7 @@ export default function HomePage() {
       <HomeSection
         title="Teknoloji"
         subtitle="Telefon, bilgisayar, ses sistemleri"
-        emoji="📱"
+        icon={Smartphone}
         categorySlug="elektronik"
         size={6}
         viewAllHref="/catalog?category=elektronik"
@@ -41,7 +52,7 @@ export default function HomePage() {
       <HomeSection
         title="Spor & Outdoor"
         subtitle="Egzersiz, koşu, yoga"
-        emoji="🏃"
+        icon={Dumbbell}
         categorySlug="spor"
         size={6}
         viewAllHref="/catalog?category=spor"
@@ -50,7 +61,7 @@ export default function HomePage() {
       <HomeSection
         title="Anne & Bebek"
         subtitle="Bebek bakımı, oyuncak, anne sağlığı"
-        emoji="👶"
+        icon={Baby}
         categorySlug="anne-bebek"
         size={6}
         viewAllHref="/catalog?category=anne-bebek"
@@ -59,7 +70,7 @@ export default function HomePage() {
       <HomeSection
         title="Moda"
         subtitle="Giyim, çanta, aksesuar"
-        emoji="👗"
+        icon={Shirt}
         categorySlug="moda"
         size={6}
         viewAllHref="/catalog?category=moda"
@@ -68,7 +79,7 @@ export default function HomePage() {
       <HomeSection
         title="Kozmetik"
         subtitle="Cilt bakımı, makyaj, parfüm"
-        emoji="💄"
+        icon={Palette}
         categorySlug="kozmetik"
         size={6}
         viewAllHref="/catalog?category=kozmetik"
@@ -77,7 +88,7 @@ export default function HomePage() {
       <HomeSection
         title="Çok Satanlar"
         subtitle="En çok değerlendirme alan ürünler"
-        emoji="🔥"
+        icon={Flame}
         sort="rating"
         size={6}
         viewAllHref="/catalog?sort=rating"
@@ -87,7 +98,7 @@ export default function HomePage() {
       <HomeSection
         title="Kitap & Müzik"
         subtitle="Kurgu, kişisel gelişim, klasikler"
-        emoji="📚"
+        icon={BookOpen}
         categorySlug="kitap"
         size={6}
         viewAllHref="/catalog?category=kitap"
@@ -96,7 +107,7 @@ export default function HomePage() {
       <HomeSection
         title="Oto & Bahçe"
         subtitle="Araç aksesuarları, bahçe ekipmanları"
-        emoji="🌿"
+        icon={Leaf}
         categorySlug="oto-bahce"
         size={6}
         viewAllHref="/catalog?category=oto-bahce"
