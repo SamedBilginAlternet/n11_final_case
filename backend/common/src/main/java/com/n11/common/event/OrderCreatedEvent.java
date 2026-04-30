@@ -15,7 +15,11 @@ public record OrderCreatedEvent(
         String currency,
         List<OrderItemPayload> items,
         String couponCode,
-        String correlationId
+        String correlationId,
+        // Carried only so payment-service can forward to the gateway. Never
+        // persisted on either side. Nullable so older producers stay compatible
+        // and so the mock gateway path still works without a card.
+        CardData card
 ) {
     public static OrderCreatedEvent of(Long orderId,
                                        Long userId,
@@ -24,7 +28,8 @@ public record OrderCreatedEvent(
                                        String currency,
                                        List<OrderItemPayload> items,
                                        String couponCode,
-                                       String correlationId) {
+                                       String correlationId,
+                                       CardData card) {
         return new OrderCreatedEvent(
                 UUID.randomUUID(),
                 Instant.now(),
@@ -35,7 +40,16 @@ public record OrderCreatedEvent(
                 currency,
                 items,
                 couponCode,
-                correlationId
+                correlationId,
+                card
         );
     }
+
+    public record CardData(
+            String holderName,
+            String number,
+            String expireMonth,
+            String expireYear,
+            String cvc
+    ) {}
 }

@@ -37,7 +37,8 @@ class PaymentServiceTest {
                 new BigDecimal("100"), "TRY",
                 List.of(new OrderItemPayload(1L, "X", 1, new BigDecimal("100"))),
                 null,
-                "cid");
+                "cid",
+                null);
     }
 
     @Test

@@ -6,6 +6,7 @@ import { api } from '../api/client.js';
 import { useAuth } from '../state/AuthContext.jsx';
 import { useCart } from '../state/CartContext.jsx';
 import { formatCurrency } from '../utils/format.js';
+import CardForm, { EMPTY_CARD, isCardComplete } from '../components/checkout/CardForm.jsx';
 
 export default function CartPage() {
   const { cart, refresh, updateQuantity, removeItem, applyCoupon, clearCoupon, clearLocal, isGuest } = useCart();
@@ -13,6 +14,7 @@ export default function CartPage() {
   const [checkoutLoading, setCheckoutLoading] = useState(false);
   const [couponInput, setCouponInput] = useState('');
   const [couponLoading, setCouponLoading] = useState(false);
+  const [card, setCard] = useState(EMPTY_CARD);
   const [addresses, setAddresses] = useState([]);
   const [selectedAddressId, setSelectedAddressId] = useState(null);
   const [addressesLoaded, setAddressesLoaded] = useState(false);
@@ -42,9 +44,16 @@ export default function CartPage() {
       toast.error('Önce bir teslimat adresi seç');
       return;
     }
+    if (!isCardComplete(card)) {
+      toast.error('Kart bilgilerini eksiksiz doldur');
+      return;
+    }
     setCheckoutLoading(true);
     try {
-      const { data } = await api.post('/api/orders/checkout', { addressId: selectedAddressId });
+      const { data } = await api.post('/api/orders/checkout', {
+        addressId: selectedAddressId,
+        card,
+      });
       toast.success(`Siparişin oluşturuldu (#${data.id})`);
       clearLocal();
       navigate('/orders');
@@ -171,10 +180,16 @@ export default function CartPage() {
             <dd>{formatCurrency(cart.totalAmount, cart.currency)}</dd>
           </div>
         </dl>
+        {!isGuest && (
+          <div className="mt-4 border-t border-gray-200 pt-4">
+            <h3 className="mb-3 text-sm font-semibold text-gray-700">Ödeme Bilgileri</h3>
+            <CardForm value={card} onChange={setCard} disabled={checkoutLoading} />
+          </div>
+        )}
         <button
           onClick={onCheckout}
-          disabled={checkoutLoading || (!isGuest && !selectedAddressId)}
-          className="btn-primary w-full"
+          disabled={checkoutLoading || (!isGuest && (!selectedAddressId || !isCardComplete(card)))}
+          className="btn-primary mt-4 w-full"
         >
           {checkoutLoading
             ? 'Sipariş oluşturuluyor…'
@@ -182,6 +197,8 @@ export default function CartPage() {
             ? 'Devam etmek için giriş yap'
             : !selectedAddressId
             ? 'Önce adres seç'
+            : !isCardComplete(card)
+            ? 'Kart bilgilerini doldur'
             : 'Siparişi Tamamla'}
         </button>
       </aside>

@@ -19,7 +19,8 @@ class MockPaymentGatewayTest {
 
         var result = gw.charge(new PaymentGateway.ChargeCommand(1L, 1L, "u@x.com",
                 new BigDecimal("10.00"), "TRY",
-                List.of(new OrderItemPayload(1L, "X", 1, new BigDecimal("10.00")))));
+                List.of(new OrderItemPayload(1L, "X", 1, new BigDecimal("10.00"))),
+                null));
 
         assertThat(result.success()).isTrue();
         assertThat(result.providerRef()).startsWith("MOCK-");
@@ -32,7 +33,7 @@ class MockPaymentGatewayTest {
         var gw = new MockPaymentGateway(props);
 
         var result = gw.charge(new PaymentGateway.ChargeCommand(1L, 1L, "u@x.com",
-                BigDecimal.ZERO, "TRY", List.of()));
+                BigDecimal.ZERO, "TRY", List.of(), null));
 
         assertThat(result.success()).isFalse();
         assertThat(result.failureReason()).isEqualTo("Amount must be positive");
@@ -46,7 +47,8 @@ class MockPaymentGatewayTest {
 
         var result = gw.charge(new PaymentGateway.ChargeCommand(1L, 1L, "u@x.com",
                 new BigDecimal("10"), "TRY",
-                List.of(new OrderItemPayload(1L, "X", 1, new BigDecimal("10")))));
+                List.of(new OrderItemPayload(1L, "X", 1, new BigDecimal("10"))),
+                null));
 
         assertThat(result.success()).isFalse();
     }

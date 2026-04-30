@@ -33,13 +33,21 @@ public class PaymentService {
                 .correlationId(order.correlationId())
                 .build());
 
+        PaymentGateway.CardData cardData = order.card() == null ? null : new PaymentGateway.CardData(
+                order.card().holderName(),
+                order.card().number(),
+                order.card().expireMonth(),
+                order.card().expireYear(),
+                order.card().cvc()
+        );
         var command = new PaymentGateway.ChargeCommand(
                 order.orderId(),
                 order.userId(),
                 order.userEmail(),
                 order.totalAmount(),
                 order.currency(),
-                order.items()
+                order.items(),
+                cardData
         );
 
         var result = gateway.charge(command);

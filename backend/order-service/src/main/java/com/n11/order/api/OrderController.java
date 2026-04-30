@@ -41,7 +41,7 @@ public class OrderController {
     @PostMapping("/checkout")
     public ResponseEntity<OrderDto> checkout(@AuthenticationPrincipal AuthenticatedUser user,
                                              @RequestBody @Valid CheckoutRequest body) {
-        OrderDto dto = checkoutService.checkout(user.userId(), user.email(), body.addressId());
+        OrderDto dto = checkoutService.checkout(user.userId(), user.email(), body.addressId(), body.card());
         return ResponseEntity.status(HttpStatus.ACCEPTED).body(dto);
     }
 

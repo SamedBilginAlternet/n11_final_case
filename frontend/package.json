@@ -16,6 +16,7 @@
     "framer-motion": "^12.38.0",
     "lucide-react": "^1.11.0",
     "react": "^18.3.1",
+    "react-credit-cards-2": "^1.2.0",
     "react-dom": "^18.3.1",
     "react-hot-toast": "^2.4.1",
     "react-router-dom": "^6.27.0"

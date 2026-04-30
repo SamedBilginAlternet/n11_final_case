@@ -3,6 +3,7 @@ package com.n11.order.service;
 import com.n11.common.correlation.CorrelationId;
 import com.n11.common.event.OrderCreatedEvent;
 import com.n11.common.event.OrderItemPayload;
+import com.n11.order.api.CheckoutRequest;
 import com.n11.order.api.dto.OrderDto;
 import com.n11.order.api.mapper.OrderMapper;
 import com.n11.order.client.AddressClient;
@@ -36,7 +37,7 @@ public class CheckoutService {
     private final OrderMapper mapper;
 
     @Transactional
-    public OrderDto checkout(Long userId, String userEmail, Long addressId) {
+    public OrderDto checkout(Long userId, String userEmail, Long addressId, CheckoutRequest.CardDetails card) {
         AddressSnapshot address = addressClient.fetch(addressId);
         CartSnapshot cart = cartClient.fetchCurrent();
         String correlationId = MDC.get(CorrelationId.MDC_KEY);
@@ -72,9 +73,11 @@ public class CheckoutService {
         List<OrderItemPayload> payloadItems = saved.getItems().stream()
                 .map(i -> new OrderItemPayload(i.getProductId(), i.getProductName(), i.getQuantity(), i.getUnitPrice()))
                 .toList();
+        OrderCreatedEvent.CardData cardPayload = card == null ? null : new OrderCreatedEvent.CardData(
+                card.holderName(), card.number(), card.expireMonth(), card.expireYear(), card.cvc());
         OrderCreatedEvent event = OrderCreatedEvent.of(
                 saved.getId(), userId, userEmail, saved.getTotalAmount(), saved.getCurrency(),
-                payloadItems, saved.getCouponCode(), correlationId);
+                payloadItems, saved.getCouponCode(), correlationId, cardPayload);
 
         TransactionSynchronizationManager.registerSynchronization(new TransactionSynchronization() {
             @Override

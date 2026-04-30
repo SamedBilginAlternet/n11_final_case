@@ -15,7 +15,18 @@ public interface PaymentGateway {
             String userEmail,
             BigDecimal amount,
             String currency,
-            List<OrderItemPayload> items
+            List<OrderItemPayload> items,
+            // Nullable: when null the gateway should fall back to its own
+            // (sandbox) default card. The mock gateway ignores this entirely.
+            CardData card
+    ) {}
+
+    record CardData(
+            String holderName,
+            String number,
+            String expireMonth,
+            String expireYear,
+            String cvc
     ) {}
 
     record PaymentChargeResult(

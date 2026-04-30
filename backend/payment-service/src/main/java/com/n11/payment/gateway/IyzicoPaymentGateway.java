@@ -46,11 +46,22 @@ public class IyzicoPaymentGateway implements PaymentGateway {
         request.setPaymentGroup("PRODUCT");
 
         PaymentCard card = new PaymentCard();
-        card.setCardHolderName("John Doe");
-        card.setCardNumber("5528790000000008");
-        card.setExpireMonth("12");
-        card.setExpireYear("2030");
-        card.setCvc("123");
+        if (command.card() != null) {
+            card.setCardHolderName(command.card().holderName());
+            card.setCardNumber(command.card().number().replaceAll("\\s+", ""));
+            card.setExpireMonth(command.card().expireMonth());
+            card.setExpireYear(command.card().expireYear());
+            card.setCvc(command.card().cvc());
+        } else {
+            // Fallback to Iyzico's documented sandbox card so the payment flow
+            // still works in environments that don't pipe card data through
+            // (smoke tests, internal admin tools).
+            card.setCardHolderName("John Doe");
+            card.setCardNumber("5528790000000008");
+            card.setExpireMonth("12");
+            card.setExpireYear("2030");
+            card.setCvc("123");
+        }
         card.setRegisterCard(0);
         request.setPaymentCard(card);
 
