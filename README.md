@@ -495,6 +495,40 @@ Her servis kendi `/v3/api-docs` ve `/swagger-ui.html` endpoint'ini açar. Gatewa
 
 JWT'yi kullanmak için Swagger'da "Authorize" → `Bearer <token>` olarak yapıştır.
 
+### Hata sözleşmesi — RFC 9457 (Problem Details)
+
+Tüm servisler hata cevabını `application/problem+json` ile döner:
+
+```json
+{
+  "type": "about:blank",
+  "title": "Conflict",
+  "status": 409,
+  "detail": "Stock yetersiz: requested 5, available 2",
+  "instance": "/api/cart/items",
+  "correlationId": "1f3c-...",
+  "timestamp": "2026-04-30T14:22:01.123Z"
+}
+```
+
+Validation hataları `errors` extension'ı ekler:
+
+```json
+{
+  "title": "Bad Request",
+  "status": 400,
+  "detail": "Validation failed",
+  "errors": [{ "field": "email", "message": "must not be blank" }],
+  "correlationId": "...",
+  "timestamp": "..."
+}
+```
+
+`common.web.BaseExceptionHandler` ortak base'tir; her servis sadece domain
+exception'larını override eder. Spring 6 `ProblemDetail` kullanılır,
+parent-handled exception'lar (validation, type mismatch, JSON parse,
+ResponseStatusException) için extension alanları otomatik eklenir.
+
 ## CI/CD
 
 | Workflow | Tetikleyici | Görev |

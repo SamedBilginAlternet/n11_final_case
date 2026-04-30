@@ -98,9 +98,22 @@ export async function performRefresh() {
   return refreshPromise;
 }
 
+// Backend returns RFC 9457 Problem Details (Content-Type: application/problem+json)
+// with `detail` as the human-readable message. Existing UI code reads
+// `err.response?.data?.message`, so we normalize the shape on the way in:
+// callers don't need to know whether the body is RFC 9457 or a legacy
+// envelope. Idempotent — running twice is a no-op.
+function normalizeErrorBody(data) {
+  if (!data || typeof data !== 'object') return;
+  if (!data.message && (data.detail || data.title)) {
+    data.message = data.detail || data.title;
+  }
+}
+
 api.interceptors.response.use(
   (response) => response,
   async (error) => {
+    normalizeErrorBody(error.response?.data);
     const original = error.config;
     const status = error.response?.status;
     const url = original?.url || '';

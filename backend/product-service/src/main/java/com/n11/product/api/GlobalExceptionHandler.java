@@ -1,23 +1,15 @@
 package com.n11.product.api;
 
-import com.n11.common.correlation.CorrelationId;
-import com.n11.common.web.ApiError;
-import jakarta.servlet.http.HttpServletRequest;
-import org.slf4j.MDC;
-import org.springframework.http.HttpStatus;
-import org.springframework.http.ResponseEntity;
-import org.springframework.web.bind.annotation.ExceptionHandler;
+import com.n11.common.web.BaseExceptionHandler;
 import org.springframework.web.bind.annotation.RestControllerAdvice;
-import org.springframework.web.server.ResponseStatusException;
 
+/**
+ * Product service has no custom domain exceptions to handle yet — controllers
+ * throw {@link org.springframework.web.server.ResponseStatusException}. The
+ * parent ResponseEntityExceptionHandler converts those to ProblemDetail and
+ * {@link BaseExceptionHandler#handleExceptionInternal} attaches our standard
+ * extensions, so subclassing alone is enough to opt into RFC 9457 output.
+ */
 @RestControllerAdvice
-public class GlobalExceptionHandler {
-
-    @ExceptionHandler(ResponseStatusException.class)
-    public ResponseEntity<ApiError> rse(ResponseStatusException ex, HttpServletRequest req) {
-        HttpStatus status = HttpStatus.valueOf(ex.getStatusCode().value());
-        return ResponseEntity.status(status).body(ApiError.of(
-                status.value(), status.getReasonPhrase(), ex.getReason(),
-                req.getRequestURI(), MDC.get(CorrelationId.MDC_KEY)));
-    }
+public class GlobalExceptionHandler extends BaseExceptionHandler {
 }
