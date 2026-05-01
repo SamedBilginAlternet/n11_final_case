@@ -198,10 +198,12 @@ services:
       <<: [*postgres-env, *rabbitmq-env, *otel-env, *jvm-defaults]
       SERVER_PORT: 8086
       POSTGRES_DB: notificationdb
-      # Production points at Resend SMTP relay over STARTTLS.  Sender domain
-      # (send.samedbilgin.com) DKIM/SPF must be verified in the Resend dashboard.
+      # Production points at Resend SMTP relay over STARTTLS.  Apex sender
+      # domain (e.g. samedbilgin.com) must be verified in the Resend
+      # dashboard — DKIM lands on root, SPF/MX on the `send.` subdomain.
+      # DO blocks outbound 587 for new accounts; use 2587 (also accepted by Resend).
       SMTP_HOST: ${SMTP_HOST:-smtp.resend.com}
-      SMTP_PORT: ${SMTP_PORT:-587}
+      SMTP_PORT: ${SMTP_PORT:-2587}
       SMTP_USERNAME: ${SMTP_USERNAME:-resend}
       SMTP_PASSWORD: ${SMTP_PASSWORD}
       SMTP_AUTH: "true"
