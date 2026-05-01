@@ -451,10 +451,31 @@ public class InventoryRabbitConfig {
 
 ---
 
-## 11. Bilinçli Olarak Yapmadıklarımız
+## 11. Image Upload — S3 SDK + MinIO
 
-- **Image upload**: Stock photo URL field var, upload endpoint yok. RAM bütçesi + S3/MinIO
-  ek container kompleksitesi nedeniyle ertelendi. Seed data'da gerçek CDN URL'leri yeterli.
+`POST /api/products/admin/{id}/image` (multipart, ADMIN gate) ürün
+resmini bir S3-compatible bucket'a yükler ve `image_url` kolonunu CDN
+URL'iyle günceller. Production'da bucket droplet üstünde MinIO container'ı;
+SDK gerçek AWS S3'e de aynı kodla bağlanır (sadece `S3_ENDPOINT` farklı).
+
+| Sorumluluk | Dosya |
+|---|---|
+| SDK yapılandırması (path-style, UrlConnectionHttpClient) | `config/S3Config.java` |
+| Properties binding | `config/S3Properties.java` |
+| Upload service (validate + putObject + URL composer) | `service/ProductImageService.java` |
+| HTTP endpoint | `api/admin/ProductImageController.java` |
+| Real-MinIO integration test | `test/.../ProductImageServiceIT.java` |
+
+Akış + secret matrisi + AWS S3 swap-out: [`docs/storage.md`](../storage.md).
+
+`ProductImageService` `S3Client`'ı `ObjectProvider` ile alır → `storage.s3.endpoint`
+boşken bean wire edilmez ve servis 503 döner; geri kalan catalog endpoint'leri
+çalışır. Local dev'de MinIO container'ı yokken pratik bir trade-off.
+
+---
+
+## 12. Bilinçli Olarak Yapmadıklarımız
+
 - **Stock reservation timeout**: Cart'a ekleyip 30dk bırakırsa stok bloke olmaz. Race koşulunda
   iki user son ürünü cart'a ekler — checkout'ta biri kaybeder. Sipariş volume'umuzda risk yok.
 - **Variants (size, color)**: Tek-variant ürün modeli. Multi-variant için `product_variants`
@@ -464,7 +485,7 @@ public class InventoryRabbitConfig {
 
 ---
 
-## 12. Klasör Yapısı
+## 13. Klasör Yapısı
 
 ```
 backend/product-service/
@@ -519,3 +540,4 @@ backend/product-service/
 - [`docs/recommendations.md`](../recommendations.md) — AI öneri pipeline
 - [`docs/caching.md`](../caching.md) — Redis namespace + invalidation
 - [`docs/services/order-service.md`](order-service.md) — Co-purchase consumer + admin metrics
+- [`docs/storage.md`](../storage.md) — MinIO + S3 SDK image upload akışı

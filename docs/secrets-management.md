@@ -284,9 +284,14 @@ okur). Bu ayrım kritik:
 
 | Tür | Yer | Sebep | Örnek |
 |---|---|---|---|
-| **Runtime** | Infisical | Container'a env-file ile girer, sync-env.sh çeker | `JWT_SECRET`, `SMTP_PASSWORD`, `FIREBASE_SERVICE_ACCOUNT_JSON`, `SENTRY_DSN` (backend) |
+| **Runtime** | Infisical | Container'a env-file ile girer, sync-env.sh çeker | `JWT_SECRET`, `SMTP_PASSWORD`, `FIREBASE_SERVICE_ACCOUNT_JSON`, `SENTRY_DSN` (backend), `MINIO_ROOT_*`, `S3_ACCESS_KEY`, `S3_SECRET_KEY`, `MINIO_CONSOLE_PASSWORD_HASH` |
 | **Build-time** | GitHub Secrets | CI Docker build sırasında lazım, droplet'a inmeden önce | `VITE_FIREBASE_API_KEY`, `VITE_SENTRY_DSN`, `SENTRY_AUTH_TOKEN` (source map upload) |
 | **Infrastructure** | GitHub Secrets | Workflow'un kendisinin secret'ı, container içinde gerek yok | `DO_DROPLET_HOST`, `DO_SSH_KEY`, `SLACK_WEBHOOK_URL`, `GHCR_TOKEN` |
+
+**Object storage secret'ları** (MinIO + S3 SDK) ayrı bir bootstrap akışı izler:
+`bootstrap-minio.sh` MinIO root creds'ten scoped service-account üretir
+ve `S3_ACCESS_KEY` / `S3_SECRET_KEY`'i sadece **bir kez** stdout'a basar →
+Infisical'a manuel yapıştırılır. Detaylar: [`docs/storage.md § 6`](storage.md#6-bootstrap--ilk-kurulum).
 
 Bunlar ayrı yerlerde çünkü:
 - Infisical sync `docker compose up -d` öncesinde çalışıyor — image **zaten**
@@ -310,5 +315,6 @@ edilirken** mi gerekiyor (bundle.js'e girer, javac'tan geçer), yoksa **containe
 
 - [`docs/deployment.md`](deployment.md) — Droplet provisioning playbook
 - [`docs/cicd.md`](cicd.md) — GitHub Actions workflow
+- [`docs/storage.md`](storage.md) — MinIO + S3 SDK + bucket bootstrap akışı
 - [`infra/digitalocean/.env.example`](../infra/digitalocean/.env.example) — Secret checklist
 - [`infra/digitalocean/sync-env.sh`](../infra/digitalocean/sync-env.sh) — Sync script

@@ -45,6 +45,7 @@ korumak zorundasın** sorularına yanıt var.
 | Saga akışı | [`saga.md`](saga.md) | ASCII waterfall, idempotency, compensation |
 | **Auth akışları** | [`auth-flows.md`](auth-flows.md) | **3 login yolu (email, Google, telefon-OTP) sequence + onboarding + checkout email gate** |
 | **Secrets yönetimi** | [`secrets-management.md`](secrets-management.md) | **Infisical + sync-env.sh + machine identity + rotation** |
+| **Object storage** | [`storage.md`](storage.md) | **MinIO + AWS S3 SDK, bucket bootstrap, image upload, AWS S3 swap-out** |
 | RabbitMQ | [`messaging.md`](messaging.md) | Exchange topology, DLX, routing key, idempotency, publish-after-commit |
 | Güvenlik | [`security.md`](security.md) | JWT HS256, refresh rotation + reuse detection, role-based access, rate limit |
 | Cache | [`caching.md`](caching.md) | Redis namespace, TTL strategy, eviction patterns, polymorphic type validator |

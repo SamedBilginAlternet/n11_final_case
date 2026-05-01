@@ -94,6 +94,10 @@ flowchart LR
     PROD --> RD[(Redis<br/>cache)]
     CART --> RD
 
+    PROD -.->|S3 SDK<br/>putObject| MIN[(MinIO<br/>S3-compatible)]
+    Browser -->|cdn.&lt;domain&gt;| Caddy
+    Caddy -.->|reverse_proxy| MIN
+
     ORD ---|publish/consume| RMQ{{RabbitMQ 3.13<br/>topic exchange + DLX}}
     PAY ---|publish/consume| RMQ
     CART ---|consume| RMQ
