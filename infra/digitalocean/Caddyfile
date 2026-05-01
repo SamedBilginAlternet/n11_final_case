@@ -19,3 +19,26 @@
         format console
     }
 }
+
+# Jaeger tracing UI — subdomain'e koyduk çünkü Jaeger UI absolute path
+# asset'leri yüklüyor (path-prefix routing için Jaeger'a `--query.base-path`
+# vermek gerekiyordu, subdomain daha temiz).  Caddy otomatik Let's Encrypt
+# sertifikası alır; DNS'e ayrı A record gerek (ya da wildcard CNAME).
+#
+# Erişim basic-auth ile korunmuş — JAEGER_USER + JAEGER_PASSWORD_HASH env
+# var'larını Infisical'a ekleyince aktifleşir.  Hash üretimi:
+#   docker run --rm caddy:2-alpine caddy hash-password --plaintext 'parolanı'
+{$JAEGER_DOMAIN:jaeger.localhost} {
+    encode zstd gzip
+
+    basic_auth {
+        {$JAEGER_USER:admin} {$JAEGER_PASSWORD_HASH}
+    }
+
+    reverse_proxy jaeger:16686
+
+    log {
+        output stdout
+        format console
+    }
+}

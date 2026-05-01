@@ -272,6 +272,13 @@ services:
       - n11_caddy_config:/config
     environment:
       DOMAIN: ${DOMAIN:-:80}
+      # Jaeger UI public hostname + basic-auth credentials.  When the
+      # password hash is empty Caddy will refuse to bind the second site,
+      # so leave JAEGER_DOMAIN at its localhost default until you've added
+      # a real subdomain + hashed password.
+      JAEGER_DOMAIN: ${JAEGER_DOMAIN:-jaeger.localhost}
+      JAEGER_USER: ${JAEGER_USER:-admin}
+      JAEGER_PASSWORD_HASH: ${JAEGER_PASSWORD_HASH:-}
     restart: unless-stopped
 
 volumes:
