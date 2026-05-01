@@ -64,6 +64,12 @@
 # login formunu da gösterir ama Caddy seviyesinde kapı tutmak fişlemeyi
 # önler (port 9001'i internet'e direkt açmıyoruz).  Hash üretimi:
 #   docker run --rm caddy:2-alpine caddy hash-password --plaintext 'parola'
+#
+# Authorization header'ı upstream'e geçmesin: MinIO console login API'si
+# (/api/v1/session) gelen `Authorization: Basic ...`'i kendi auth'u
+# sanıp 401 atıyor.  basic_auth direktifi header'ı VALIDATE ettikten
+# sonra header_up -Authorization ile MinIO'ya temiz request gider —
+# console kendi cookie-based session'ını kurar.
 {$MINIO_DOMAIN:minio.localhost} {
     encode zstd gzip
 
@@ -71,7 +77,9 @@
         {$MINIO_CONSOLE_USER:admin} {$MINIO_CONSOLE_PASSWORD_HASH}
     }
 
-    reverse_proxy minio:9001
+    reverse_proxy minio:9001 {
+        header_up -Authorization
+    }
 
     log {
         output stdout
