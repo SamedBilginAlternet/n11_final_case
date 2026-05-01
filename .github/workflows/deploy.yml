@@ -210,7 +210,7 @@ jobs:
           host: ${{ secrets.DO_DROPLET_HOST }}
           username: ${{ secrets.DO_DROPLET_USER }}
           key: ${{ secrets.DO_SSH_KEY }}
-          source: "infra/digitalocean/docker-compose.prod.yml,infra/digitalocean/Caddyfile,infra/digitalocean/sync-env.sh,infra/digitalocean/postgres-init/*"
+          source: "infra/digitalocean/docker-compose.prod.yml,infra/digitalocean/Caddyfile,infra/digitalocean/sync-env.sh,infra/digitalocean/postgres-init/*,infra/digitalocean/scripts/*"
           target: "/opt/n11"
           strip_components: 2
 
