@@ -328,6 +328,7 @@ services:
       JAEGER_DOMAIN: ${JAEGER_DOMAIN:-jaeger.localhost}
       JAEGER_USER: ${JAEGER_USER:-admin}
       JAEGER_PASSWORD_HASH: ${JAEGER_PASSWORD_HASH:-}
+      ADMIN_DOMAIN: ${ADMIN_DOMAIN:-admin.localhost}
       # MinIO subdomains served by the same Caddy instance.  CDN_DOMAIN
       # exposes S3 GETs publicly (anonymous read on bucket); MINIO_DOMAIN
       # fronts the admin console behind basic-auth.

@@ -20,6 +20,29 @@
     }
 }
 
+# Admin panel — ayrı subdomain, frontend-admin nginx imajına gider.
+# /api/* yine api-gateway'e proxy'lenir (same-origin axios çağrıları
+# için).  CORS gevşetmesine gerek yok çünkü browser admin domain'inden
+# /api/... çağırırken aynı origin görüyor.  ADMIN_DOMAIN boşsa
+# admin.localhost fallback'iyle local compose'da da çalışır.
+{$ADMIN_DOMAIN:admin.localhost} {
+    encode zstd gzip
+
+    @api path /api/* /v3/api-docs/* /swagger-ui/* /swagger-ui.html /aggregated-docs/*
+    handle @api {
+        reverse_proxy api-gateway:8080
+    }
+
+    handle {
+        reverse_proxy frontend-admin:80
+    }
+
+    log {
+        output stdout
+        format console
+    }
+}
+
 # Jaeger tracing UI — subdomain'e koyduk çünkü Jaeger UI absolute path
 # asset'leri yüklüyor (path-prefix routing için Jaeger'a `--query.base-path`
 # vermek gerekiyordu, subdomain daha temiz).  Caddy otomatik Let's Encrypt
