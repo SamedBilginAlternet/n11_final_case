@@ -46,7 +46,12 @@ public class SecurityConfig {
                         // Admin metrics: require auth; @PreAuthorize on controller
                         // gates ADMIN.  Listed BEFORE the public GET matcher so
                         // it isn't shadowed by /api/products/** permitAll.
-                        .requestMatchers(HttpMethod.GET, "/api/products/admin/**").authenticated()
+                        .requestMatchers(HttpMethod.GET,  "/api/products/admin/**").authenticated()
+                        // Admin image upload — multipart POST.  Falls under the
+                        // same /admin/** ADMIN gate via @PreAuthorize on the
+                        // controller; we still demand a valid JWT here so
+                        // anonymous POST gets 401, not 403.
+                        .requestMatchers(HttpMethod.POST, "/api/products/admin/**").authenticated()
                         .requestMatchers(HttpMethod.GET, "/api/products/**", "/api/categories/**").permitAll()
                         .requestMatchers(HttpMethod.PUT, "/api/products/*/reviews/**").authenticated()
                         .requestMatchers(HttpMethod.DELETE, "/api/products/*/reviews/**").authenticated()
