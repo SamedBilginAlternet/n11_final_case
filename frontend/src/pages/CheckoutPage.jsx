@@ -1,8 +1,9 @@
 import { useEffect, useMemo, useState } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
 import toast from 'react-hot-toast';
-import { ChevronLeft, ChevronRight, CreditCard, Lock, MapPin, ShieldCheck } from 'lucide-react';
-import { api } from '../api/client.js';
+import { ChevronLeft, ChevronRight, CreditCard, Lock, Mail, MapPin, ShieldCheck } from 'lucide-react';
+import { api, performRefresh, tokenStore } from '../api/client.js';
+import { useAuth } from '../state/AuthContext.jsx';
 import { useCart } from '../state/CartContext.jsx';
 import { formatCurrency } from '../utils/format.js';
 import CheckoutStepper from '../components/checkout/CheckoutStepper.jsx';
@@ -13,6 +14,7 @@ const STEPS = ['Adres', 'Ödeme', 'Onay'];
 
 export default function CheckoutPage() {
   const { cart, clearLocal } = useCart();
+  const { user } = useAuth();
   const navigate = useNavigate();
 
   const [step, setStep] = useState(0);
@@ -21,6 +23,11 @@ export default function CheckoutPage() {
   const [selectedAddressId, setSelectedAddressId] = useState(null);
   const [card, setCard] = useState(EMPTY_CARD);
   const [submitting, setSubmitting] = useState(false);
+
+  // Phone-only users land here without an email on file; shipment receipts
+  // and order-tracking links both require one, so we gate the rest of the
+  // flow behind an inline collection step.
+  const needsEmail = user && !user.email;
 
   useEffect(() => {
     api.get('/api/addresses')
@@ -39,7 +46,9 @@ export default function CheckoutPage() {
   );
 
   const cardComplete = isCardComplete(card);
-  const canProceed = step === 0 ? !!selectedAddressId : step === 1 ? cardComplete : true;
+  const canProceed = needsEmail
+    ? false
+    : step === 0 ? !!selectedAddressId : step === 1 ? cardComplete : true;
 
   if (!cart.items || cart.items.length === 0) {
     return (
@@ -74,6 +83,8 @@ export default function CheckoutPage() {
 
       <div className="grid gap-4 lg:grid-cols-[1fr_360px] lg:gap-6">
         <section className="space-y-4">
+          {needsEmail && <EmailGate />}
+
           {step === 0 && (
             <StepCard
               icon={MapPin}
@@ -145,6 +156,66 @@ export default function CheckoutPage() {
         </aside>
       </div>
     </div>
+  );
+}
+
+function EmailGate() {
+  const [email, setEmail] = useState('');
+  const [busy, setBusy] = useState(false);
+
+  async function save(e) {
+    e.preventDefault();
+    setBusy(true);
+    try {
+      // 1. Persist email on the user record.
+      await api.patch('/api/users/me', { email });
+      // 2. Trade the refresh cookie for a fresh JWT — the new token carries
+      //    the email claim, which order-service trusts when it derives
+      //    user_email for the order row.  Without this rotation the next
+      //    POST /api/orders/checkout still presents a stale email-less JWT.
+      await performRefresh();
+      // performRefresh updates tokenStore + AuthContext via AUTH_EVENT,
+      // so the parent re-reads user.email and EmailGate unmounts itself.
+      toast.success('E-posta kaydedildi');
+      // Defensive: if for some reason the AUTH_EVENT didn't fire, force a
+      // re-read so the gate definitely closes.
+      tokenStore.getUser();
+    } catch (err) {
+      const message = err.response?.data?.message || 'E-posta kaydedilemedi';
+      toast.error(message);
+    } finally {
+      setBusy(false);
+    }
+  }
+
+  return (
+    <article className="card border-amber-200 bg-amber-50/40 p-5">
+      <header className="mb-3 flex items-center gap-3">
+        <span className="grid h-9 w-9 place-items-center rounded-full bg-amber-100 text-amber-700">
+          <Mail className="h-4 w-4" strokeWidth={1.8} aria-hidden />
+        </span>
+        <div>
+          <h2 className="text-base font-semibold text-gray-800">E-posta Adresin</h2>
+          <p className="text-xs text-gray-500">
+            Sipariş onayı, fatura ve kargo takibi için gerekli.
+          </p>
+        </div>
+      </header>
+      <form onSubmit={save} className="flex flex-col gap-2 sm:flex-row">
+        <input
+          type="email"
+          required
+          autoComplete="email"
+          placeholder="ornek@mail.com"
+          value={email}
+          onChange={(e) => setEmail(e.target.value)}
+          className="input flex-1"
+        />
+        <button type="submit" disabled={busy || !email} className="btn-primary whitespace-nowrap">
+          {busy ? 'Kaydediliyor…' : 'Kaydet ve Devam Et'}
+        </button>
+      </form>
+    </article>
   );
 }
 

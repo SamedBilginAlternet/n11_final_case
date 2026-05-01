@@ -41,6 +41,15 @@ public class OrderController {
     @PostMapping("/checkout")
     public ResponseEntity<OrderDto> checkout(@AuthenticationPrincipal AuthenticatedUser user,
                                              @RequestBody @Valid CheckoutRequest body) {
+        if (user.email() == null || user.email().isBlank()) {
+            // Phone-only accounts haven't supplied an email yet — receipt
+            // delivery and customer-service tracking both rely on it, so
+            // we surface a structured 422 instead of crashing on the
+            // user_email NOT NULL constraint downstream.
+            throw new org.springframework.web.server.ResponseStatusException(
+                    HttpStatus.UNPROCESSABLE_ENTITY,
+                    "Sipariş için e-posta gerekli. Profilinden ekleyip tekrar dene.");
+        }
         OrderDto dto = checkoutService.checkout(user.userId(), user.email(), body.addressId(), body.card());
         return ResponseEntity.status(HttpStatus.ACCEPTED).body(dto);
     }
