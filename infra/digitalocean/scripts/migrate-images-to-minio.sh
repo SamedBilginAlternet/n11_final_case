@@ -81,7 +81,11 @@ HDR
 
 COUNT=0
 FAILED=0
-while IFS=$'\t' read -r SLUG URL; do
+# fd 3 carries the loop input so the docker cp / docker exec calls
+# inside the body don't accidentally consume our heredoc bytes (which
+# would terminate the loop after the first iteration that uses docker —
+# the bug that limited an earlier run to 2 of 41 rows).
+while IFS=$'\t' read -r SLUG URL <&3; do
     [[ -z "$SLUG" ]] && continue
     LOCAL="$TMP/${SLUG}.jpg"
     echo "→ $SLUG"
@@ -93,16 +97,17 @@ while IFS=$'\t' read -r SLUG URL; do
     fi
 
     # docker cp to land the bytes in the container, then mc cp to land
-    # them in MinIO.  Two hops but keeps the script terse — direct
-    # streaming via stdin needs more shell gymnastics.
-    docker cp "$LOCAL" "$MINIO_CTR:/tmp/upload.bin"
+    # them in MinIO.  Belt-and-suspenders: also redirect their stdin to
+    # /dev/null so even if fd 3 weren't enough, docker can't reach the
+    # loop input.
+    docker cp "$LOCAL" "$MINIO_CTR:/tmp/upload.bin" </dev/null
     $DC exec -T minio mc cp --quiet \
-        "/tmp/upload.bin" "local/${BUCKET}/products/${SLUG}.jpg" >/dev/null
-    $DC exec -T minio rm -f /tmp/upload.bin
+        "/tmp/upload.bin" "local/${BUCKET}/products/${SLUG}.jpg" </dev/null >/dev/null
+    $DC exec -T minio rm -f /tmp/upload.bin </dev/null
 
     echo "UPDATE products SET image_url = '${CDN_BASE}/products/${SLUG}.jpg' WHERE slug = '${SLUG}';" >> "$OUT_SQL"
     COUNT=$((COUNT + 1))
-done <<< "$PAIRS"
+done 3<<< "$PAIRS"
 
 echo
 echo "✓ Migrated ${COUNT} images (failed: ${FAILED})"
