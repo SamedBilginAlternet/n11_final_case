@@ -203,7 +203,7 @@ jobs:
           host: ${{ secrets.DO_DROPLET_HOST }}
           username: ${{ secrets.DO_DROPLET_USER }}
           key: ${{ secrets.DO_SSH_KEY }}
-          source: "infra/digitalocean/docker-compose.prod.yml,infra/digitalocean/Caddyfile,infra/digitalocean/postgres-init/*"
+          source: "infra/digitalocean/docker-compose.prod.yml,infra/digitalocean/Caddyfile,infra/digitalocean/sync-env.sh,infra/digitalocean/postgres-init/*"
           target: "/opt/n11"
           strip_components: 2
 
@@ -221,6 +221,16 @@ jobs:
             set -euo pipefail
             cd /opt/n11
             chmod +x postgres-init/*.sh || true
+            chmod +x sync-env.sh 2>/dev/null || true
+            # Pull the latest .env from Infisical before deploy so secret edits
+            # in the Infisical UI flow through CI without manual SSH.  If the
+            # sync script isn't present (older droplets / first run), fall
+            # through and use whatever .env already exists.
+            if [ -x ./sync-env.sh ]; then
+              ./sync-env.sh
+            else
+              echo "::warning::sync-env.sh missing on droplet, using existing .env"
+            fi
             export IMAGE_TAG="$IMAGE_TAG"
             if grep -q "^IMAGE_TAG=" .env 2>/dev/null; then
               sed -i "s|^IMAGE_TAG=.*|IMAGE_TAG=$IMAGE_TAG|" .env
