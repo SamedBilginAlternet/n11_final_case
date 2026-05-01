@@ -4,6 +4,7 @@ import Footer from './components/Footer.jsx';
 import ProtectedRoute from './components/ProtectedRoute.jsx';
 import ChatBubbleButton from './components/chatbot/ChatBubbleButton.jsx';
 import ChatPanel from './components/chatbot/ChatPanel.jsx';
+import OnboardingNameDialog from './components/OnboardingNameDialog.jsx';
 import HomePage from './pages/HomePage.jsx';
 import LoginPage from './pages/LoginPage.jsx';
 import OAuthCallbackPage from './pages/OAuthCallbackPage.jsx';
@@ -85,6 +86,7 @@ export default function App() {
       <Footer />
       <ChatBubbleButton />
       <ChatPanel />
+      <OnboardingNameDialog />
     </div>
   );
 }

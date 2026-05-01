@@ -4,6 +4,14 @@
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
     <title>n11 Case — E-Ticaret</title>
+    <!-- Warm up TLS to Firebase / Identity Toolkit so the phone-login flow
+         doesn't pay the 200+ ms TR -> us-central handshake on the first
+         click.  Cheap when used, harmless when not. -->
+    <link rel="preconnect" href="https://identitytoolkit.googleapis.com" crossorigin />
+    <link rel="preconnect" href="https://www.googleapis.com" crossorigin />
+    <link rel="preconnect" href="https://securetoken.googleapis.com" crossorigin />
+    <link rel="preconnect" href="https://www.google.com" crossorigin />
+    <link rel="preconnect" href="https://www.gstatic.com" crossorigin />
   </head>
   <body class="bg-slate-50">
     <div id="root"></div>

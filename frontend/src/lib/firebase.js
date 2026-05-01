@@ -1,15 +1,14 @@
-import { initializeApp, getApps } from 'firebase/app';
-import { getAuth } from 'firebase/auth';
-
 /**
- * Lazy Firebase Auth bootstrap.  Returns null when the build wasn't given
- * VITE_FIREBASE_* values — callers fall back to email/Google login UI in
- * that case so dev/preview builds don't blow up just because Firebase
- * wasn't wired.
+ * Lazy Firebase Auth bootstrap.
  *
- * The Firebase Web config is technically public (it ships in the bundle),
- * so we don't bother encrypting it — the actual auth boundary is on the
- * backend, which verifies the ID token against Google's JWKS.
+ * The Firebase JS SDK is ~250 kB minified — pulling it into every page
+ * load wrecks LCP for users who never touch the login flow.  We import
+ * it dynamically inside {@link getFirebaseAuth} so Vite emits a separate
+ * chunk that only downloads when something actually calls into Firebase.
+ *
+ * The {@link isFirebaseConfigured} flag stays synchronous (just env var
+ * checks) so callers can decide whether to render phone-login UI without
+ * paying for the SDK download up front.
  */
 const config = {
   apiKey: import.meta.env.VITE_FIREBASE_API_KEY,
@@ -20,11 +19,29 @@ const config = {
 export const isFirebaseConfigured = Boolean(config.apiKey && config.authDomain && config.projectId);
 
 let cachedAuth = null;
+let initPromise = null;
 
-export function getFirebaseAuth() {
+export async function getFirebaseAuth() {
   if (!isFirebaseConfigured) return null;
   if (cachedAuth) return cachedAuth;
-  const app = getApps().length ? getApps()[0] : initializeApp(config);
-  cachedAuth = getAuth(app);
-  return cachedAuth;
+  if (!initPromise) {
+    initPromise = (async () => {
+      const [{ initializeApp, getApps }, { getAuth }] = await Promise.all([
+        import('firebase/app'),
+        import('firebase/auth'),
+      ]);
+      const app = getApps().length ? getApps()[0] : initializeApp(config);
+      cachedAuth = getAuth(app);
+      return cachedAuth;
+    })();
+  }
+  return initPromise;
+}
+
+// Convenience re-export for the few call sites that need RecaptchaVerifier
+// / signInWithPhoneNumber — keeps the dynamic-import boilerplate in one
+// place and ensures these symbols ride the same chunk as firebase/auth.
+export async function loadFirebaseAuthFns() {
+  const mod = await import('firebase/auth');
+  return { RecaptchaVerifier: mod.RecaptchaVerifier, signInWithPhoneNumber: mod.signInWithPhoneNumber };
 }

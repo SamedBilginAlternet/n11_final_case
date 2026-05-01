@@ -1,10 +1,10 @@
 import { useEffect, useRef, useState } from 'react';
 import { Link, useLocation, useNavigate, useSearchParams } from 'react-router-dom';
 import toast from 'react-hot-toast';
-import { RecaptchaVerifier, signInWithPhoneNumber } from 'firebase/auth';
+import { motion } from 'framer-motion';
 import { useAuth } from '../state/AuthContext.jsx';
 import { apiRoot } from '../api/client.js';
-import { getFirebaseAuth, isFirebaseConfigured } from '../lib/firebase.js';
+import { getFirebaseAuth, isFirebaseConfigured, loadFirebaseAuthFns } from '../lib/firebase.js';
 
 // Use the shared apiRoot (origin without /api) so the redirect URL is
 // `<origin>/api/auth/oauth2/authorize/google`.  The earlier hand-rolled
@@ -163,7 +163,8 @@ function PhoneLoginForm({ loading, onConfirm }) {
 
   async function ensureRecaptcha() {
     if (recaptchaRef.current) return recaptchaRef.current;
-    const auth = getFirebaseAuth();
+    const auth = await getFirebaseAuth();
+    const { RecaptchaVerifier } = await loadFirebaseAuthFns();
     const verifier = new RecaptchaVerifier(auth, recaptchaContainerRef.current, { size: 'invisible' });
     await verifier.render();
     recaptchaRef.current = verifier;
@@ -178,16 +179,17 @@ function PhoneLoginForm({ loading, onConfirm }) {
     }
     setBusy(true);
     try {
-      const auth = getFirebaseAuth();
+      const auth = await getFirebaseAuth();
       const verifier = await ensureRecaptcha();
+      const { signInWithPhoneNumber } = await loadFirebaseAuthFns();
       const confirmation = await signInWithPhoneNumber(auth, phone, verifier);
       confirmationRef.current = confirmation;
       setStep('otp');
+      setCode('');
       toast.success('Kod gönderildi');
     } catch (err) {
-      // Firebase throws fairly opaque errors; surface code so user can debug
-      const code = err?.code || 'unknown';
-      toast.error(`Kod gönderilemedi (${code})`);
+      const errCode = err?.code || 'unknown';
+      toast.error(`Kod gönderilemedi (${errCode})`);
       // Reset reCAPTCHA so the next attempt gets a fresh widget; reuse after
       // a failure leaves Firebase wedged.
       if (recaptchaRef.current) {
@@ -199,20 +201,19 @@ function PhoneLoginForm({ loading, onConfirm }) {
     }
   }
 
-  async function verifyCode(e) {
-    e.preventDefault();
+  async function verifyCode(submittedCode) {
     if (!confirmationRef.current) {
       toast.error('Önce kod iste');
       return;
     }
     setBusy(true);
     try {
-      const result = await confirmationRef.current.confirm(code);
+      const result = await confirmationRef.current.confirm(submittedCode);
       const idToken = await result.user.getIdToken();
       await onConfirm(idToken);
     } catch (err) {
-      const code = err?.code || 'unknown';
-      toast.error(`Kod doğrulanamadı (${code})`);
+      const errCode = err?.code || 'unknown';
+      toast.error(`Kod doğrulanamadı (${errCode})`);
     } finally {
       setBusy(false);
     }
@@ -245,26 +246,25 @@ function PhoneLoginForm({ loading, onConfirm }) {
       )}
 
       {step === 'otp' && (
-        <form onSubmit={verifyCode} className="space-y-4">
-          <div>
-            <label htmlFor="otp" className="block text-sm font-medium text-gray-700">
-              Doğrulama Kodu
-            </label>
-            <input
-              id="otp"
-              inputMode="numeric"
-              autoComplete="one-time-code"
-              maxLength={6}
-              required
-              className="input mt-1 tracking-[0.5em] text-center text-lg"
-              value={code}
-              onChange={(e) => setCode(e.target.value.replace(/\D/g, ''))}
-            />
-            <p className="mt-1 text-xs text-gray-400">
-              {phone} numarasına 6 haneli kod gönderildi.
-            </p>
+        <div className="space-y-5">
+          <div className="text-center">
+            <p className="text-sm text-gray-600">{phone}</p>
+            <p className="text-xs text-gray-400">numarasına 6 haneli kod gönderildi</p>
           </div>
-          <button type="submit" disabled={busy || loading || code.length !== 6} className="btn-primary w-full">
+          <OtpInput
+            value={code}
+            onChange={(next) => {
+              setCode(next);
+              if (next.length === 6 && !busy && !loading) verifyCode(next);
+            }}
+            disabled={busy || loading}
+          />
+          <button
+            type="button"
+            onClick={() => verifyCode(code)}
+            disabled={busy || loading || code.length !== 6}
+            className="btn-primary w-full"
+          >
             {busy || loading ? 'Doğrulanıyor…' : 'Doğrula ve Giriş Yap'}
           </button>
           <button
@@ -274,11 +274,86 @@ function PhoneLoginForm({ loading, onConfirm }) {
           >
             Numarayı değiştir
           </button>
-        </form>
+        </div>
       )}
 
       {/* Invisible reCAPTCHA target — Firebase mounts the challenge here. */}
       <div ref={recaptchaContainerRef} />
+    </div>
+  );
+}
+
+/**
+ * Six-digit OTP input rendered as separate underline-bordered cells.
+ * Auto-advances on input, supports paste of the full code, and handles
+ * Backspace to step back to the previous cell.  iOS auto-fills from the
+ * SMS notification banner via {@code autocomplete="one-time-code"} on the
+ * first cell.
+ */
+function OtpInput({ value, onChange, disabled, length = 6 }) {
+  const refs = useRef([]);
+  const padded = value.padEnd(length, ' ').split('').slice(0, length);
+
+  function setDigit(idx, char) {
+    const digit = char.replace(/\D/g, '').slice(-1);
+    const next = padded.slice();
+    next[idx] = digit || '';
+    const merged = next.join('').trimEnd();
+    onChange(merged);
+    if (digit && idx < length - 1) refs.current[idx + 1]?.focus();
+  }
+
+  function onKeyDown(idx, e) {
+    if (e.key === 'Backspace') {
+      if (padded[idx]?.trim()) {
+        // Clear current cell first; let onChange below handle it via setDigit('').
+        return;
+      }
+      if (idx > 0) {
+        e.preventDefault();
+        refs.current[idx - 1]?.focus();
+      }
+    } else if (e.key === 'ArrowLeft' && idx > 0) {
+      e.preventDefault();
+      refs.current[idx - 1]?.focus();
+    } else if (e.key === 'ArrowRight' && idx < length - 1) {
+      e.preventDefault();
+      refs.current[idx + 1]?.focus();
+    }
+  }
+
+  function onPaste(e) {
+    const pasted = e.clipboardData.getData('text').replace(/\D/g, '').slice(0, length);
+    if (!pasted) return;
+    e.preventDefault();
+    onChange(pasted);
+    refs.current[Math.min(pasted.length, length - 1)]?.focus();
+  }
+
+  return (
+    <div className="flex justify-center gap-2 sm:gap-3">
+      {padded.map((digit, i) => (
+        <motion.input
+          key={i}
+          ref={(el) => { refs.current[i] = el; }}
+          type="text"
+          inputMode="numeric"
+          maxLength={1}
+          autoComplete={i === 0 ? 'one-time-code' : 'off'}
+          aria-label={`Kod hanesi ${i + 1}`}
+          value={digit.trim()}
+          disabled={disabled}
+          onChange={(e) => setDigit(i, e.target.value)}
+          onKeyDown={(e) => onKeyDown(i, e)}
+          onPaste={onPaste}
+          onFocus={(e) => e.target.select()}
+          className={`h-12 w-10 rounded-md border-2 bg-white text-center text-lg font-semibold tabular-nums outline-none transition-colors sm:h-14 sm:w-12 ${
+            digit.trim() ? 'border-n11-pink text-n11-pink' : 'border-gray-200 text-gray-700'
+          } focus:border-n11-pink disabled:opacity-50`}
+          animate={digit.trim() ? { scale: [1, 1.08, 1] } : {}}
+          transition={{ duration: 0.18 }}
+        />
+      ))}
     </div>
   );
 }
