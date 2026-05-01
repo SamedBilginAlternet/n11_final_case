@@ -11,6 +11,7 @@ import java.nio.charset.StandardCharsets;
 import java.time.Duration;
 import java.time.Instant;
 import java.util.Date;
+import java.util.HashMap;
 import java.util.Map;
 
 @Component
@@ -30,16 +31,21 @@ public class JwtTokenProvider {
         Instant now = Instant.now();
         Instant expiresAt = now.plus(accessTtl);
 
+        // HashMap (not Map.of) so phone-only users with no email/full_name
+        // don't blow up on null entries.  Downstream consumers already treat
+        // these claims as optional.
+        Map<String, Object> claims = new HashMap<>();
+        if (user.getEmail() != null) claims.put("email", user.getEmail());
+        if (user.getPhoneNumber() != null) claims.put("phoneNumber", user.getPhoneNumber());
+        if (user.getFullName() != null) claims.put("fullName", user.getFullName());
+        claims.put("role", user.getRole().name());
+
         String token = Jwts.builder()
                 .issuer(props.issuer())
                 .subject(String.valueOf(user.getId()))
                 .issuedAt(Date.from(now))
                 .expiration(Date.from(expiresAt))
-                .claims(Map.of(
-                        "email", user.getEmail(),
-                        "fullName", user.getFullName(),
-                        "role", user.getRole().name()
-                ))
+                .claims(claims)
                 .signWith(key)
                 .compact();
 

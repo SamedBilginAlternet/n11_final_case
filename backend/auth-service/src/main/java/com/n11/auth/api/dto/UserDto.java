@@ -7,6 +7,7 @@ import java.time.Instant;
 public record UserDto(
         Long id,
         String email,
+        String phoneNumber,
         String fullName,
         Role role,
         Instant createdAt

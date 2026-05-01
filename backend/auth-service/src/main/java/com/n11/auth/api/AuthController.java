@@ -2,13 +2,19 @@ package com.n11.auth.api;
 
 import com.n11.auth.api.dto.AuthTokenResponse;
 import com.n11.auth.api.dto.LoginRequest;
+import com.n11.auth.api.dto.PhoneLoginRequest;
 import com.n11.auth.api.dto.RegisterRequest;
 import com.n11.auth.api.dto.UserDto;
+import com.n11.auth.domain.User;
 import com.n11.auth.security.RefreshCookieFactory;
 import com.n11.auth.service.AuthenticationService;
 import com.n11.auth.service.AuthenticationService.IssuedTokens;
+import com.n11.auth.service.FirebaseTokenVerifier;
+import com.n11.auth.service.FirebaseTokenVerifier.VerifiedPhoneIdentity;
+import com.n11.auth.service.PhoneLoginService;
 import com.n11.auth.service.RefreshTokenService;
 import com.n11.auth.service.RegistrationService;
+import org.springframework.beans.factory.ObjectProvider;
 import io.swagger.v3.oas.annotations.Operation;
 import io.swagger.v3.oas.annotations.tags.Tag;
 import jakarta.servlet.http.HttpServletRequest;
@@ -31,6 +37,10 @@ public class AuthController {
     private final AuthenticationService authenticationService;
     private final RefreshTokenService refreshTokenService;
     private final RefreshCookieFactory cookieFactory;
+    private final PhoneLoginService phoneLoginService;
+    // FirebaseTokenVerifier is only wired when FIREBASE_SERVICE_ACCOUNT_JSON
+    // is set, so the rest of auth-service still boots in dev/CI without it.
+    private final ObjectProvider<FirebaseTokenVerifier> firebaseVerifier;
 
     @Operation(summary = "Register a new user")
     @PostMapping("/register")
@@ -45,6 +55,23 @@ public class AuthController {
                                                    HttpServletRequest http) {
         IssuedTokens issued = authenticationService.login(
                 request, http.getHeader("User-Agent"), clientIp(http));
+        return withRefreshCookie(issued);
+    }
+
+    @Operation(summary = "Login with a Firebase ID token from a verified phone number; auto-creates the user on first login.")
+    @PostMapping("/login/phone")
+    public ResponseEntity<AuthTokenResponse> loginByPhone(@RequestBody @Valid PhoneLoginRequest request,
+                                                          HttpServletRequest http) {
+        FirebaseTokenVerifier verifier = firebaseVerifier.getIfAvailable();
+        if (verifier == null) {
+            // Surface as 401 rather than 503 — clients should treat this the
+            // same as any other auth failure and fall back to email/Google.
+            throw new BadCredentialsException("Phone login is not configured on this server");
+        }
+        VerifiedPhoneIdentity identity = verifier.verify(request.idToken());
+        User user = phoneLoginService.upsertByPhone(identity.phoneNumber());
+        IssuedTokens issued = authenticationService.issueTokens(
+                user, http.getHeader("User-Agent"), clientIp(http));
         return withRefreshCookie(issued);
     }
 

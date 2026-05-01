@@ -47,6 +47,10 @@ n11:
     google:
       client-id: ${GOOGLE_CLIENT_ID:}
       client-secret: ${GOOGLE_CLIENT_SECRET:}
+  firebase:
+    # Multi-line JSON pulled from Infisical.  When blank, FirebaseConfig
+    # short-circuits and the /api/auth/login/phone endpoint returns 401.
+    service-account-json: ${FIREBASE_SERVICE_ACCOUNT_JSON:}
 
 management:
   endpoints:

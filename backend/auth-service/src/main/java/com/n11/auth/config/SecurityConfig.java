@@ -53,6 +53,7 @@ public class SecurityConfig {
         return new TokenBucketRateLimitFilter(10, 60, request ->
                 "POST".equals(request.getMethod())
                         && ("/api/auth/login".equals(request.getRequestURI())
+                                || "/api/auth/login/phone".equals(request.getRequestURI())
                                 || "/api/auth/register".equals(request.getRequestURI())
                                 || "/api/auth/refresh".equals(request.getRequestURI())));
     }
@@ -70,6 +71,7 @@ public class SecurityConfig {
                         .requestMatchers(HttpMethod.POST,
                                 "/api/auth/register",
                                 "/api/auth/login",
+                                "/api/auth/login/phone",
                                 "/api/auth/refresh",
                                 "/api/auth/logout").permitAll()
                         .requestMatchers("/api/auth/oauth2/**").permitAll()

@@ -6,7 +6,7 @@ import lombok.*;
 import java.time.Instant;
 
 @Entity
-@Table(name = "users", uniqueConstraints = @UniqueConstraint(columnNames = "email"))
+@Table(name = "users")
 @Getter
 @Setter
 @NoArgsConstructor
@@ -18,13 +18,16 @@ public class User {
     @GeneratedValue(strategy = GenerationType.IDENTITY)
     private Long id;
 
-    @Column(nullable = false, length = 160)
+    @Column(length = 160)
     private String email;
+
+    @Column(name = "phone_number", length = 20)
+    private String phoneNumber;
 
     @Column(name = "password_hash", length = 200)
     private String passwordHash;
 
-    @Column(name = "full_name", nullable = false, length = 160)
+    @Column(name = "full_name", length = 160)
     private String fullName;
 
     @Column(name = "oauth_provider", length = 20)
