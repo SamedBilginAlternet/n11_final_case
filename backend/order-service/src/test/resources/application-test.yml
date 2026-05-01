@@ -1,0 +1,22 @@
+spring:
+  jpa:
+    hibernate:
+      ddl-auto: validate
+  flyway:
+    enabled: true
+
+# Tracing OFF for IT runs — local OTEL collector isn't up and we don't
+# want a UnknownHostException stream in the logs while debugging tests.
+management:
+  tracing:
+    sampling:
+      probability: 0.0
+
+# Sentry DSN bos -> SDK no-op (servis prod'da bunu Infisical'dan aliyor).
+sentry:
+  dsn: ""
+
+n11:
+  jwt:
+    secret: integration-test-32-byte-secret-padding-1234
+    issuer: n11-auth
