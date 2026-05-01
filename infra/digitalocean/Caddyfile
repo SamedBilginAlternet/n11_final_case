@@ -42,3 +42,39 @@
         format console
     }
 }
+
+# CDN — public S3 GET'leri (ürün resimleri).  Bucket policy "anonymous
+# read" olduğu için presigned URL şart değil; MinIO 9000'de imzasız GET
+# çalışır.  Encode + 30g cache header ile browser tarafında uzun yaşasın
+# (image URL'leri immutable: dosya adı slug, içerik değişmiyor).
+{$CDN_DOMAIN:cdn.localhost} {
+    encode zstd gzip
+
+    header Cache-Control "public, max-age=2592000, immutable"
+
+    reverse_proxy minio:9000
+
+    log {
+        output stdout
+        format console
+    }
+}
+
+# MinIO admin console.  Basic-auth ekledik çünkü MinIO console kendi
+# login formunu da gösterir ama Caddy seviyesinde kapı tutmak fişlemeyi
+# önler (port 9001'i internet'e direkt açmıyoruz).  Hash üretimi:
+#   docker run --rm caddy:2-alpine caddy hash-password --plaintext 'parola'
+{$MINIO_DOMAIN:minio.localhost} {
+    encode zstd gzip
+
+    basic_auth {
+        {$MINIO_CONSOLE_USER:admin} {$MINIO_CONSOLE_PASSWORD_HASH}
+    }
+
+    reverse_proxy minio:9001
+
+    log {
+        output stdout
+        format console
+    }
+}
