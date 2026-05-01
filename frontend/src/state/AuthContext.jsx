@@ -1,6 +1,7 @@
 import { createContext, useCallback, useContext, useEffect, useRef, useState } from 'react';
 import toast from 'react-hot-toast';
 import { api, tokenStore, AUTH_EVENT, performRefresh } from '../api/client.js';
+import { setSentryUser } from '../lib/sentry.js';
 
 const AuthContext = createContext(null);
 
@@ -24,6 +25,13 @@ export function AuthProvider({ children }) {
       window.removeEventListener('storage', sync);
     };
   }, []);
+
+  // Mirror auth state into Sentry's scope so any captured event going
+  // forward carries the user identity.  Cleared on logout — otherwise
+  // a fresh anonymous session would inherit the previous user's id.
+  useEffect(() => {
+    setSentryUser(user);
+  }, [user]);
 
   // On first mount: if we don't have an in-memory access token but there's a
   // stored user (sticky UX hint that "this user was logged in"), try to

@@ -171,6 +171,10 @@ jobs:
             VITE_FIREBASE_API_KEY=${{ secrets.VITE_FIREBASE_API_KEY }}
             VITE_FIREBASE_AUTH_DOMAIN=${{ secrets.VITE_FIREBASE_AUTH_DOMAIN }}
             VITE_FIREBASE_PROJECT_ID=${{ secrets.VITE_FIREBASE_PROJECT_ID }}
+            VITE_SENTRY_DSN=${{ secrets.VITE_SENTRY_DSN }}
+            VITE_SENTRY_ENVIRONMENT=production
+            VITE_SENTRY_RELEASE=${{ needs.meta.outputs.image_tag }}
+            SENTRY_AUTH_TOKEN=${{ secrets.SENTRY_AUTH_TOKEN }}
           tags: |
             ghcr.io/${{ needs.meta.outputs.owner_lc }}/${{ matrix.image }}:${{ needs.meta.outputs.image_tag }}
             ghcr.io/${{ needs.meta.outputs.owner_lc }}/${{ matrix.image }}:latest
