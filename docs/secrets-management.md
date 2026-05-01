@@ -11,6 +11,7 @@ neyle değiştirildi, niye bu yol seçildi.
 - [5. Bootstrap — İlk Kurulum](#5-bootstrap--i̇lk-kurulum)
 - [6. Yeni Secret Ekleme](#6-yeni-secret-ekleme)
 - [7. Trade-off'lar ve Limitler](#7-trade-offlar-ve-limitler)
+- [8. Bootstrap Ayrımı — Infisical vs GitHub Secrets](#8-bootstrap-ayrımı--infisical-vs-github-secrets)
 
 ---
 
@@ -272,6 +273,36 @@ Sonraki tüm deploy'lar `gh workflow run deploy` ile tetiklenir, manuel SSH yok.
   CI'da deploy günde max 10 kere tetiklenir.
 - **Secret size**: tek secret max 10 kB. `FIREBASE_SERVICE_ACCOUNT_JSON` ~2 kB —
   rahat sığar.
+
+---
+
+## 8. Bootstrap Ayrımı — Infisical vs GitHub Secrets
+
+Tüm secret'lar Infisical'da değil. Bazıları **build-time** lazım (CI image
+üretirken bundle'a girer), bazıları **runtime** (servis ayağa kalkınca env'den
+okur). Bu ayrım kritik:
+
+| Tür | Yer | Sebep | Örnek |
+|---|---|---|---|
+| **Runtime** | Infisical | Container'a env-file ile girer, sync-env.sh çeker | `JWT_SECRET`, `SMTP_PASSWORD`, `FIREBASE_SERVICE_ACCOUNT_JSON`, `SENTRY_DSN` (backend) |
+| **Build-time** | GitHub Secrets | CI Docker build sırasında lazım, droplet'a inmeden önce | `VITE_FIREBASE_API_KEY`, `VITE_SENTRY_DSN`, `SENTRY_AUTH_TOKEN` (source map upload) |
+| **Infrastructure** | GitHub Secrets | Workflow'un kendisinin secret'ı, container içinde gerek yok | `DO_DROPLET_HOST`, `DO_SSH_KEY`, `SLACK_WEBHOOK_URL`, `GHCR_TOKEN` |
+
+Bunlar ayrı yerlerde çünkü:
+- Infisical sync `docker compose up -d` öncesinde çalışıyor — image **zaten**
+  build edilmiş haldedir, env'in build sürecine sokmak için geç kalmıştır.
+- GitHub Actions build job'ı Infisical'a doğrudan bağlanmıyor — Universal Auth
+  identity sadece droplet'ta. Build'in CI'da `infisical login` yapıp prod
+  env'i çekmesi mümkün ama o zaman frontend bundle'ları + backend image'ları
+  build aşamasında secret değerlerine maruz kalır (artifact leak riski).
+- En temizi: **build-time secret'lar GitHub Secrets'ta** (Actions runner
+  içinde, image content'e baked olduktan sonra dış'a gözükmez), **runtime
+  secret'lar Infisical'da** (managed UI, rotation, audit).
+
+Yeni bir secret eklerken kendine sor: "Bu değer **container image'ı build
+edilirken** mi gerekiyor (bundle.js'e girer, javac'tan geçer), yoksa **container
+çalışırken** mi okunuyor (`@Value`, `import.meta.env` runtime check)?"
+İkincisi → Infisical. Birincisi → GitHub Secrets.
 
 ---
 

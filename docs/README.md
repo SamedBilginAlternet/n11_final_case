@@ -50,7 +50,7 @@ korumak zorundasın** sorularına yanıt var.
 | Cache | [`caching.md`](caching.md) | Redis namespace, TTL strategy, eviction patterns, polymorphic type validator |
 | Search | [`search.md`](search.md) | PostgreSQL FTS, tsvector, faceted filter |
 | AI Öneriler | [`recommendations.md`](recommendations.md) | Co-purchase + Groq re-rank pipeline |
-| Observability | [`observability.md`](observability.md) | Correlation ID, Jaeger tracing, Micrometer metrics |
+| Observability | [`observability.md`](observability.md) | Correlation ID, Jaeger tracing, Micrometer metrics, **Sentry error tracking + replay + sourcemap upload** |
 | CI/CD | [`cicd.md`](cicd.md) | GitHub Actions ↔ Jenkins karşılaştırması |
 | Deployment | [`deployment.md`](deployment.md) | DigitalOcean droplet + GHCR |
 

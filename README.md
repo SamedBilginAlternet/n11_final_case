@@ -17,7 +17,7 @@ deploy boru hattı (her deploy'da Slack bildirimi).
 | **Frontend** | React 18, Vite 5, Tailwind 3 (n11 magenta tema), react-router 6, axios, react-hot-toast, framer-motion; lazy-loaded Firebase chunk; 6-kutulu OTP UI |
 | **DevOps** | Docker Compose, Jib, GitHub Actions, **DigitalOcean droplet** (SSH deploy), **GHCR** (free image registry), Caddy reverse proxy + auto-TLS, Slack webhook (yalnızca CI/CD deploy bildirimi) |
 | **Secrets** | **Infisical** managed secret store + Universal Auth machine identity → `sync-env.sh` her deploy'da `/opt/n11/.env` üretir, manuel `nano .env` yok |
-| **Observability** | Correlation ID propagation (HTTP + AMQP), Micrometer + Prometheus metrics, **OpenTelemetry → Jaeger** distributed tracing (UI :16686) |
+| **Observability** | Correlation ID propagation (HTTP + AMQP), Micrometer + Prometheus metrics, **OpenTelemetry → Jaeger** distributed tracing (UI basic-auth korumalı `$JAEGER_DOMAIN`), **Sentry** error tracking — frontend (React + replay + sourcemap upload) + 8 backend servisi tek projede service-tag'larıyla |
 | **Test** | JUnit 5 + Mockito + Testcontainers (PostgreSQL) |
 
 ## İçindekiler

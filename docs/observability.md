@@ -10,10 +10,13 @@ trace + Micrometer metrics. Niye bu seçimler, nasıl konfigüre edildi.
 | Pilar | Araç | Görünür yer | "Ne sorduğumda?" |
 |---|---|---|---|
 | **Logs** | SLF4J + Logback (default) + correlation ID | stdout (Docker logs) | "Bu request'in akışı ne?" |
-| **Traces** | Micrometer Tracing + OTel + Jaeger | Jaeger UI (`:16686`) | "Bu request her servise kaç ms'te geçti?" |
+| **Traces** | Micrometer Tracing + OTel + Jaeger | Jaeger UI (basic-auth korumalı `$JAEGER_DOMAIN` veya `:16686`) | "Bu request her servise kaç ms'te geçti?" |
 | **Metrics** | Micrometer (built-in) → Actuator | `/actuator/metrics/...` | "Cache hit ratio ne?" "Latency p99?" |
+| **Errors** | **Sentry** (frontend + backend) | sentry.io / `n11-frontend`, `n11-backend` projeleri | "Hata stack trace'i ne, hangi user gördü, kaç kere oldu?" |
 
-Üçü ayrı ayrı sorulara cevap verir. Birinin yerini diğeri tutmaz.
+Dördü ayrı ayrı sorulara cevap verir. Birinin yerini diğeri tutmaz. Sentry tracing
+özelliği bilinçli olarak **kapalı** (`traces-sample-rate=0`) — onu Jaeger yapıyor,
+ikisini birden açmak hem maliyetli hem context split eder.
 
 ---
 
@@ -233,7 +236,163 @@ Pragmatik: correlation ID **business view** (bir kullanıcı işlemi), trace ID 
 
 ---
 
-## 4. Metrics — Actuator + Micrometer
+## 4. Error Tracking — Sentry
+
+Jaeger latency'yi gösterir, log'lar mesajları yazar — ama "**hata olduğu anda neredeydi
+kullanıcı, hangi React state'iyle, stack trace nerede?**" sorusu için stack-aware
+bir error tracker lazım. Sentry bunu yapar; SaaS free tier portfolio scope için yeter
+(5k event + 50 replay / ay).
+
+### 4.1 İki Proje, İki Platform
+
+| Proje | Platform | Yakaladığı |
+|---|---|---|
+| `n11-frontend` | Browser/React | UI render hataları, axios reject, unhandled promise, console errors |
+| `n11-backend` | Java/Spring Boot | Tüm 8 microservice'in exception'ları + ERROR-level log event'leri |
+
+Backend tek proje + `service:auth-service` gibi tag'larla servis ayrımı yapılır;
+frontend için ayrı proje **platform tag'ı doğal şekilde JS hatalarını React event
+modeline ayırdığı** için.
+
+### 4.2 Backend Wiring
+
+`backend/common/pom.xml` shared dep:
+
+```xml
+<dependency>
+    <groupId>io.sentry</groupId>
+    <artifactId>sentry-spring-boot-starter-jakarta</artifactId>
+</dependency>
+<dependency>
+    <groupId>io.sentry</groupId>
+    <artifactId>sentry-logback</artifactId>
+</dependency>
+```
+
+8 servis bu library'yi inherit eder, her birinin `application.yml`'ında küçük bir
+`sentry:` block:
+
+```yaml
+sentry:
+  dsn: ${SENTRY_DSN:}            # boş -> SDK no-op (local dev)
+  environment: ${SENTRY_ENVIRONMENT:local}
+  release: ${SENTRY_RELEASE:dev}  # docker compose IMAGE_TAG'ından geliyor
+  send-default-pii: false
+  traces-sample-rate: 0.0         # tracing Jaeger'da kalır
+  logging:
+    minimum-event-level: error    # WARN log'ları Sentry'ye düşmez
+    minimum-breadcrumb-level: info
+  tags:
+    service: auth-service          # her serviste hardcoded
+```
+
+`docker-compose.prod.yml`'ndaki `*sentry-env` YAML anchor merge'i ile DSN ortak,
+release her deploy'da `IMAGE_TAG`'ından otomatik:
+
+```yaml
+x-sentry-env: &sentry-env
+  SENTRY_DSN: ${SENTRY_DSN:-}
+  SENTRY_ENVIRONMENT: ${SENTRY_ENVIRONMENT:-production}
+  SENTRY_RELEASE: ${IMAGE_TAG:-latest}
+```
+
+### 4.3 Niye OpenTelemetry Agent Yok
+
+Sentry'nin önerdiği kurulum `sentry-opentelemetry-agent.jar` ile JVM'i sarıyor —
+tracing hem Jaeger'a hem Sentry'ye gidiyor. Bizde **sadece error tracking**
+istiyoruz, tracing zaten Jaeger'da. Agent'ı kullanmamak:
+- Daha az bellek/CPU yükü (agent her span'i interceptlemiyor)
+- Sentry "Tracing" sekmesi boş kalır (bilinçli)
+- `SENTRY_AUTO_INIT` flag'lerine + extra javaagent çağrısına gerek yok
+
+Trade-off: Sentry Issues'da "Performance" tab'ı yok. Yavaşlık için Jaeger'a bakacaksın.
+
+### 4.4 Frontend Wiring
+
+`frontend/src/lib/sentry.js`:
+
+```js
+export function initSentry() {
+  const dsn = import.meta.env.VITE_SENTRY_DSN;
+  if (!dsn) return;
+  Sentry.init({
+    dsn,
+    environment: import.meta.env.VITE_SENTRY_ENVIRONMENT || 'production',
+    release: import.meta.env.VITE_SENTRY_RELEASE || 'dev',
+    integrations: [Sentry.replayIntegration({ maskAllText: true, blockAllMedia: true })],
+    tracesSampleRate: 0.0,
+    replaysSessionSampleRate: 0.1,
+    replaysOnErrorSampleRate: 1.0,
+    initialScope: { tags: { service: 'frontend' } },
+  });
+}
+```
+
+`main.jsx` → `initSentry()` + `Sentry.ErrorBoundary` tüm React tree'yi sarar.
+Render-time React hataları yakalar, blank-screen yerine fallback gösterir.
+
+### 4.5 User Scope — AuthContext Bridge
+
+`AuthContext` `useEffect`'inden Sentry'ye user identity push ediyor:
+
+```jsx
+useEffect(() => {
+  setSentryUser(user);
+}, [user]);
+```
+
+Login → `Sentry.setUser({ id, email, username })` → sonraki tüm event'ler bu
+kullanıcıya bağlanır. Logout → `Sentry.setUser(null)` → scope temizlenir,
+sonraki anonymous session önceki user'ı miras almaz.
+
+### 4.6 Source Map Upload
+
+Production bundle minified — `e.t.handleClick` gibi okunmaz stack trace'ler
+gelir. `@sentry/vite-plugin` build-time'da source map'leri Sentry'ye yükler,
+sonra `dist/`'ten siler:
+
+```js
+// vite.config.js
+sentryVitePlugin({
+  authToken: process.env.SENTRY_AUTH_TOKEN,    // GitHub Secrets'tan
+  org: process.env.SENTRY_ORG,
+  project: process.env.SENTRY_PROJECT,
+  release: { name: process.env.VITE_SENTRY_RELEASE },
+  sourcemaps: { filesToDeleteAfterUpload: ['./dist/**/*.map'] },
+})
+```
+
+Sonuç: Sentry Issues'da stack trace **`LoginPage.jsx:147`** olarak okunur, end
+user `*.map` indirmez (sadece Sentry'nin var). Plugin sadece `SENTRY_AUTH_TOKEN`
+varsa çalışır — local `npm run build` token'sız sourcemap upload yapmaz.
+
+### 4.7 Bilinçli Saf Tutulan Şeyler
+
+| Özellik | Açıklama | Niye |
+|---|---|---|
+| **Tracing** | `traces-sample-rate: 0.0` her iki tarafta da | Jaeger zaten yapıyor, ikisini birden açmak hem maliyetli hem context split |
+| **Performance Monitoring** | Aktif değil | Aynı sebep — Jaeger'da var |
+| **Profiling** | Kapalı | Portfolio scope'unda overkill |
+| **Cron monitoring** | Kapalı | Actuator scheduled task metrikleri yetiyor |
+| **Validation hatalarını capture** | Hayır | "+90 ile başlat" gibi UI validation toast'ları Sentry'ye düşmüyor — beklenen kullanıcı hatası, free tier'ı doldurma |
+
+### 4.8 Sentry Setup → Infisical / GitHub Secrets
+
+Hangi secret nereye gider:
+
+| Secret | Yer | Niye |
+|---|---|---|
+| `SENTRY_DSN` (backend) | **Infisical** | Runtime'da inilir, sync-env.sh ile compose'a girer |
+| `SENTRY_ENVIRONMENT` | **Infisical** | Runtime config |
+| `VITE_SENTRY_DSN` (frontend) | **GitHub Secrets** | Build-time'da bundle'a girer, droplet'a inmeden önce CI'da gerekli |
+| `SENTRY_AUTH_TOKEN` | **GitHub Secrets** | CI build sırasında source map upload için |
+| `SENTRY_ORG`, `SENTRY_PROJECT` | **GitHub Secrets** | Aynı sebep |
+
+Bootstrap ayrımı: backend DSN runtime, frontend DSN build-time.
+
+---
+
+## 5. Metrics — Actuator + Micrometer
 
 ### Endpoint
 
@@ -312,7 +471,7 @@ public class CheckoutService {
 
 ---
 
-## 5. Health Checks
+## 6. Health Checks
 
 ```yaml
 management:
@@ -358,7 +517,7 @@ geçene kadar başlamaz. Order: postgres ✓ → auth-service ✓ → order-serv
 
 ---
 
-## 6. Log Format
+## 7. Log Format
 
 Default Spring Boot Logback pattern (override yok):
 ```
@@ -397,7 +556,7 @@ Production'da `com.n11: INFO` yapılır — DEBUG produktif değil.
 
 ---
 
-## 7. Tipik Debug Senaryoları
+## 8. Tipik Debug Senaryoları
 
 ### "Sipariş oluştu ama mail gelmedi"
 
@@ -433,7 +592,7 @@ Hit/miss ratio'su. Hit %< 90 ise cache invalidation çok agresif veya TTL çok k
 
 ---
 
-## 8. Bilinçli Olarak Yapmadıklarımız
+## 9. Bilinçli Olarak Yapmadıklarımız
 
 - **Centralized log aggregation (Loki, ELK)**: Compose'da yok; `docker compose logs` ile
   yetiniyoruz. Production deployment'a Loki + Promtail sidecar eklemek bir akşamlık iş.
