@@ -79,7 +79,7 @@ flowchart LR
     GW --> NOT[notification-service :8086]
     GW --> CHB[chatbot-service :8087]
 
-    AUTH -.verifyIdToken.-> Phone
+    AUTH -.->|verifyIdToken| Phone
     NOT -->|SMTP 2587| Resend[Resend<br/>apex DKIM]
     CHB -->|HTTP| Groq[Groq / Claude API]
 
@@ -100,9 +100,9 @@ flowchart LR
     NOT ---|consume| RMQ
     PROD ---|consume| RMQ
 
-    INF[(Infisical Cloud<br/>secrets)] -.sync-env.sh.-> ENV["/opt/n11/.env"]
-    ENV -.--env-file.-> GW
-    ENV -.--env-file.-> AUTH
+    INF[(Infisical Cloud<br/>secrets)] -.->|sync-env.sh| ENV["/opt/n11/.env"]
+    ENV -.->|--env-file| GW
+    ENV -.->|--env-file| AUTH
 ```
 
 Detaylı diyagram + tasarım kararları: [`docs/architecture.md`](docs/architecture.md).
