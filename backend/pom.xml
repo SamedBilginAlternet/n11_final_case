@@ -45,6 +45,7 @@
         <mapstruct.version>1.6.0</mapstruct.version>
         <lombok.version>1.18.34</lombok.version>
         <lombok-mapstruct-binding.version>0.2.0</lombok-mapstruct-binding.version>
+        <sentry.version>8.40.0</sentry.version>
     </properties>
 
     <dependencyManagement>
@@ -109,6 +110,21 @@
                 <groupId>org.mapstruct</groupId>
                 <artifactId>mapstruct</artifactId>
                 <version>${mapstruct.version}</version>
+            </dependency>
+
+            <!-- Sentry error tracking. Tracing is intentionally NOT routed
+                 through Sentry — we keep the existing Micrometer + Jaeger
+                 OpenTelemetry pipeline.  This starter only ships exception
+                 events to Sentry's Issues view. -->
+            <dependency>
+                <groupId>io.sentry</groupId>
+                <artifactId>sentry-spring-boot-starter-jakarta</artifactId>
+                <version>${sentry.version}</version>
+            </dependency>
+            <dependency>
+                <groupId>io.sentry</groupId>
+                <artifactId>sentry-logback</artifactId>
+                <version>${sentry.version}</version>
             </dependency>
         </dependencies>
     </dependencyManagement>

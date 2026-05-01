@@ -79,6 +79,20 @@
             <artifactId>spring-boot-starter-test</artifactId>
             <scope>test</scope>
         </dependency>
+
+        <!-- Pulled in via common so every service inherits Sentry error
+             reporting + the logback appender without duplicating the dep
+             in 8 service POMs.  DSN comes from the sentry.dsn property
+             which we set via SENTRY_DSN env var; if it's blank Sentry
+             SDK no-ops (intentional — local dev / CI skip reporting). -->
+        <dependency>
+            <groupId>io.sentry</groupId>
+            <artifactId>sentry-spring-boot-starter-jakarta</artifactId>
+        </dependency>
+        <dependency>
+            <groupId>io.sentry</groupId>
+            <artifactId>sentry-logback</artifactId>
+        </dependency>
     </dependencies>
 
     <build>

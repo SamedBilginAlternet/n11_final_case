@@ -57,3 +57,19 @@ springdoc:
 logging:
   pattern:
     level: "%5p [%X{correlationId:-}]"
+
+sentry:
+  # Boş DSN -> SDK no-op olur (local dev / CI sessiz).  Production'da
+  # SENTRY_DSN Infisical'dan iner.  Tracing Jaeger'da kaldığı için
+  # traces-sample-rate=0 — Sentry sadece exception ve ERROR-level log
+  # event'leri yakalar.
+  dsn: ${SENTRY_DSN:}
+  environment: ${SENTRY_ENVIRONMENT:local}
+  release: ${SENTRY_RELEASE:dev}
+  send-default-pii: false
+  traces-sample-rate: 0.0
+  logging:
+    minimum-event-level: error
+    minimum-breadcrumb-level: info
+  tags:
+    service: chatbot-service
