@@ -62,6 +62,27 @@ export function AuthProvider({ children }) {
     }
   }, [applyTokenResponse]);
 
+  // Called after the Firebase Phone Auth flow has handed us a verified ID
+  // token; the backend trades it for our own JWT pair.  Identical session
+  // shape to email login so the rest of the app doesn't care which channel
+  // produced the token.
+  const loginWithPhone = useCallback(async (idToken) => {
+    setLoading(true);
+    try {
+      const { data } = await api.post('/api/auth/login/phone', { idToken });
+      applyTokenResponse(data);
+      const greeting = data.user.fullName || data.user.phoneNumber || 'tekrar';
+      toast.success(`Hoş geldin ${greeting}`);
+      return data.user;
+    } catch (err) {
+      const message = err.response?.data?.message || 'Telefonla giriş başarısız';
+      toast.error(message);
+      throw err;
+    } finally {
+      setLoading(false);
+    }
+  }, [applyTokenResponse]);
+
   const register = useCallback(async (payload) => {
     setLoading(true);
     try {
@@ -117,7 +138,7 @@ export function AuthProvider({ children }) {
 
   return (
     <AuthContext.Provider
-      value={{ user, token, loading, login, register, logout, hydrateFromOAuth, isAuthed: !!token }}
+      value={{ user, token, loading, login, loginWithPhone, register, logout, hydrateFromOAuth, isAuthed: !!token }}
     >
       {children}
     </AuthContext.Provider>
