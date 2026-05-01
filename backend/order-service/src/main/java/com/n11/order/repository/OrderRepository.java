@@ -1,6 +1,7 @@
 package com.n11.order.repository;
 
 import com.n11.order.domain.Order;
+import com.n11.order.domain.OrderStatus;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.Pageable;
 import org.springframework.data.jpa.repository.JpaRepository;
@@ -17,19 +18,23 @@ public interface OrderRepository extends JpaRepository<Order, Long> {
 
     Optional<Order> findByIdAndUserId(Long id, Long userId);
 
+    Page<Order> findAllByOrderByCreatedAtDesc(Pageable pageable);
+
+    Page<Order> findByStatusOrderByCreatedAtDesc(OrderStatus status, Pageable pageable);
+
     /**
      * Admin listing — every user's orders, optionally filtered by status.
-     * When {@code status} is null the predicate degenerates and we get all
-     * orders.  Sorted by createdAt desc so the panel shows the freshest
-     * activity first.
+     * Splits into two queries instead of using {@code (:status is null or ...)}
+     * because PostgreSQL refuses to infer the type of a lone bind parameter
+     * inside an {@code IS NULL} predicate ({@code could not determine data
+     * type of parameter $1}).  Two trivial Spring Data derived queries
+     * sidestep the issue entirely and keep the HQL out of the codebase.
      */
-    @Query("""
-            select o from Order o
-            where (:status is null or o.status = :status)
-            order by o.createdAt desc
-            """)
-    Page<Order> findAllByOptionalStatus(@Param("status") com.n11.order.domain.OrderStatus status,
-                                        Pageable pageable);
+    default Page<Order> findAllByOptionalStatus(OrderStatus status, Pageable pageable) {
+        return status == null
+                ? findAllByOrderByCreatedAtDesc(pageable)
+                : findByStatusOrderByCreatedAtDesc(status, pageable);
+    }
 
     /**
      * Co-purchase signal — products that ended up in the same order as
