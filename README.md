@@ -100,7 +100,7 @@ flowchart LR
     NOT ---|consume| RMQ
     PROD ---|consume| RMQ
 
-    INF[(Infisical Cloud<br/>secrets)] -.sync-env.sh.-> ENV[/opt/n11/.env]
+    INF[(Infisical Cloud<br/>secrets)] -.sync-env.sh.-> ENV["/opt/n11/.env"]
     ENV -.--env-file.-> GW
     ENV -.--env-file.-> AUTH
 ```
@@ -212,9 +212,9 @@ Detay: [`docs/saga.md`](docs/saga.md).
 ```mermaid
 flowchart LR
     Dev[Geliştirici] -->|UI'dan edit| INF[Infisical Cloud]
-    GA[GitHub Actions deploy] -->|SCP| SCR[/opt/n11/sync-env.sh]
+    GA[GitHub Actions deploy] -->|SCP| SCR["/opt/n11/sync-env.sh"]
     SCR -->|infisical export prod| INF
-    SCR -->|atomic write| ENV[/opt/n11/.env]
+    SCR -->|atomic write| ENV["/opt/n11/.env"]
     ENV -->|--env-file| Compose[docker compose up -d]
 ```
 

@@ -44,9 +44,9 @@ flowchart LR
     Dev[Developer / UI] -->|edit| INF[(Infisical Cloud<br/>n11/prod env)]
     INF -->|fetch via Universal Auth| CLI[infisical CLI<br/>on droplet]
     GA[GitHub Actions deploy.yml] -->|SCP sync-env.sh| CLI
-    GA -->|SSH script run| SCR[/opt/n11/sync-env.sh]
+    GA -->|SSH script run| SCR["/opt/n11/sync-env.sh"]
     SCR -->|infisical export| INF
-    SCR -->|atomic write| ENV[/opt/n11/.env]
+    SCR -->|atomic write| ENV["/opt/n11/.env"]
     ENV -->|--env-file| Compose[docker compose up -d]
     Compose --> Services[7 microservices]
 ```
