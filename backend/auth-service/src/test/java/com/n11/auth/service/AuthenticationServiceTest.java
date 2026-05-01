@@ -45,7 +45,7 @@ class AuthenticationServiceTest {
         when(tokenProvider.issue(user)).thenReturn(new JwtTokenProvider.IssuedToken("TOKEN", now, now.plusSeconds(60), 60));
         when(refreshTokenService.issueNewFamily(eq(user), any(), any()))
                 .thenReturn(new RefreshTokenService.Issued(1L, "REFRESH", now.plusSeconds(2592000), 2592000, java.util.UUID.randomUUID()));
-        when(userMapper.toDto(user)).thenReturn(new UserDto(7L, "a@b.com", "Ada", Role.USER, now));
+        when(userMapper.toDto(user)).thenReturn(new UserDto(7L, "a@b.com", null, "Ada", Role.USER, now));
 
         AuthenticationService.IssuedTokens issued = service.login(new LoginRequest("a@b.com", "pwd"), "agent", "1.2.3.4");
 
@@ -95,7 +95,7 @@ class AuthenticationServiceTest {
                 new RefreshTokenService.Issued(2L, "NEW_REFRESH", now.plusSeconds(2592000), 2592000, java.util.UUID.randomUUID()));
         when(refreshTokenService.rotate(eq("OLD"), any(), any())).thenReturn(rotated);
         when(tokenProvider.issue(user)).thenReturn(new JwtTokenProvider.IssuedToken("NEW_TOKEN", now, now.plusSeconds(60), 60));
-        when(userMapper.toDto(user)).thenReturn(new UserDto(7L, "a@b.com", "Ada", Role.USER, now));
+        when(userMapper.toDto(user)).thenReturn(new UserDto(7L, "a@b.com", null, "Ada", Role.USER, now));
 
         AuthenticationService.IssuedTokens issued = service.refresh("OLD", "agent", "1.2.3.4");
 

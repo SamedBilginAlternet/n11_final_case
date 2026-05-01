@@ -46,7 +46,7 @@ class RegistrationServiceTest {
             u.setUpdatedAt(Instant.now());
             return u;
         });
-        UserDto expected = new UserDto(42L, "foo@bar.com", "Foo Bar", Role.USER, Instant.now());
+        UserDto expected = new UserDto(42L, "foo@bar.com", null, "Foo Bar", Role.USER, Instant.now());
         when(userMapper.toDto(any(User.class))).thenReturn(expected);
 
         UserDto actual = service.register(request);

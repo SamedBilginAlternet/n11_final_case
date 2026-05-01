@@ -44,7 +44,7 @@ class UserControllerTest {
     }
 
     private UserDto dtoFixture(Long id, Role role) {
-        return new UserDto(id, "u" + id + "@n11.com", "Name", role, Instant.now());
+        return new UserDto(id, "u" + id + "@n11.com", null, "Name", role, Instant.now());
     }
 
     @Test
