@@ -14,14 +14,16 @@
 | Anasayfa | `/` | Public |
 | Catalog (search + filter) | `/catalog?q=&filter=...` | Public |
 | Ürün detay | `/products/:slug` | Public |
-| Login | `/login` | Public |
+| Login | `/login` | Public — 3 tab: Telefon (Firebase OTP), E-posta, Google |
 | Register | `/register` | Public |
 | OAuth callback | `/auth/callback` | Public |
 | Sepet | `/cart` | Auth |
 | Sipariş listesi | `/orders` | Auth |
-| Adres yönetimi | `/addresses` | Auth |
+| Adres yönetimi | `/account/addresses` | Auth |
 | Favoriler | `/favorites` | Auth |
-| Profile | `/profile` | Auth |
+| Profil | `/account` | Auth — email/isim edit + onboarding link |
+| Checkout | `/checkout` | Auth — phone-only kullanıcı için EmailGate |
+| Checkout processing | `/checkout/processing/:id` | Auth — saga durumu poll'ler |
 
 ---
 
@@ -101,7 +103,205 @@ sayesinde browser-side sync.
 
 ---
 
-## 3. Axios Client + Interceptors
+## 3. Login UI — 3 Tab + Lazy Firebase
+
+`pages/LoginPage.jsx` üç login kanalına hizmet eder:
+
+```
+┌─ Google ile Giriş Yap (button, OAuth redirect)
+│
+├─ ─ veya ─
+│
+├─ Tab: [ Telefon ] [ E-posta ]      ← isFirebaseConfigured ise
+│
+├─ tab === 'phone'    → PhoneLoginForm (Firebase OTP)
+└─ tab === 'email'    → EmailLoginForm (legacy)
+```
+
+> Üç akışın **sequence diagram'ı + backend bağlantıları**:
+> [`docs/auth-flows.md`](../auth-flows.md).
+
+### 3.1 `isFirebaseConfigured` — Build-Time Switch
+
+```js
+// lib/firebase.js
+const config = {
+  apiKey: import.meta.env.VITE_FIREBASE_API_KEY,
+  authDomain: import.meta.env.VITE_FIREBASE_AUTH_DOMAIN,
+  projectId: import.meta.env.VITE_FIREBASE_PROJECT_ID,
+};
+export const isFirebaseConfigured = Boolean(
+  config.apiKey && config.authDomain && config.projectId
+);
+```
+
+Build-time env üçü de doluysa Phone tab default olur. Yoksa tab header gizlenir,
+sadece email login render edilir — dev/preview build'ler Firebase olmadan
+çalışmaya devam eder.
+
+### 3.2 Lazy Firebase — Bundle Optimizasyonu
+
+Firebase JS SDK ~250 kB. Önceden ana bundle'a giriyordu, her sayfa bu maliyeti
+ödüyordu. Şimdi dynamic import:
+
+```js
+// lib/firebase.js
+let cachedAuth = null;
+let initPromise = null;
+
+export async function getFirebaseAuth() {
+  if (cachedAuth) return cachedAuth;
+  if (!initPromise) {
+    initPromise = (async () => {
+      const [{ initializeApp, getApps }, { getAuth }] = await Promise.all([
+        import('firebase/app'),
+        import('firebase/auth'),
+      ]);
+      const app = getApps().length ? getApps()[0] : initializeApp(config);
+      cachedAuth = getAuth(app);
+      return cachedAuth;
+    })();
+  }
+  return initPromise;
+}
+```
+
+Vite/Rollup ayrı chunk üretir: `index.esm-*.js` (~190 kB Firebase auth). Sadece
+kullanıcı `/login`'e gidip telefon tab'ına dokunduğunda indirilir. Main bundle:
+
+```
+ÖNCE:  661 kB
+SONRA: 499 kB main + 234 kB Firebase chunk (lazy)
+```
+
+Ek olarak `index.html`'de **preconnect** hint'leri:
+
+```html
+<link rel="preconnect" href="https://identitytoolkit.googleapis.com" crossorigin />
+<link rel="preconnect" href="https://www.googleapis.com" crossorigin />
+<link rel="preconnect" href="https://securetoken.googleapis.com" crossorigin />
+```
+
+TR'den us-central'a TLS handshake idle'da kurulur, "Kod Gönder" tıklayınca soğuk
+başlangıç maliyeti yok.
+
+### 3.3 Two-Step Phone Form
+
+`PhoneLoginForm` bir state machine:
+
+```
+step === 'phone'  → numara input + reCAPTCHA + "Kod Gönder"
+                    │
+                    └─→ Firebase signInWithPhoneNumber
+                        │
+                        ├─ ConfirmationResult kaydet (useRef)
+                        └─ setStep('otp')
+                                │
+                                ▼
+step === 'otp'    → 6-kutu OtpInput + auto-submit + "Numarayı değiştir"
+                    │
+                    └─→ confirmation.confirm(code)
+                        │
+                        └─ user.getIdToken() → POST /api/auth/login/phone
+```
+
+`ConfirmationResult` **useRef**'te tutulur — render'lar arasında kaybolmaz, çünkü
+Firebase confirm metodunu sadece o object'in üzerinde çağırabilirsin.
+
+### 3.4 reCAPTCHA Yönetimi
+
+Firebase Phone Auth bot koruması için reCAPTCHA istiyor (`size: 'invisible'`).
+Subtle gotcha: reCAPTCHA verifier **bir kez render edilir**, sonra reuse
+edemezsin. Cleanup şart:
+
+```jsx
+useEffect(() => () => {
+  if (recaptchaRef.current) {
+    try { recaptchaRef.current.clear(); } catch { /* noop */ }
+    recaptchaRef.current = null;
+  }
+}, []);
+```
+
+Login başarısız olursa da temizleyip baştan yaratıyoruz, yoksa Firebase wedged
+kalıyor.
+
+### 3.5 6-Kutu OTP UI
+
+Custom `OtpInput` komponenti (3rd party paket eklemedik):
+
+```jsx
+<motion.input
+  inputMode="numeric"
+  maxLength={1}
+  autoComplete={i === 0 ? 'one-time-code' : 'off'}
+  className={digit ? 'border-n11-pink text-n11-pink' : 'border-gray-200'}
+  animate={digit ? { scale: [1, 1.08, 1] } : {}}
+  transition={{ duration: 0.18 }}
+/>
+```
+
+**Davranış:**
+- Auto-advance: digit girince `focus()` next cell
+- Backspace: boş cell'de bir önceki cell'e atla
+- Paste: 6 hane yapıştırılırsa otomatik dağıtır
+- Auto-submit: 6. hane girilince `verifyCode` tetiklenir (kullanıcı butona basmaz)
+- iOS one-time-code: ilk cell'deki `autoComplete="one-time-code"` SMS notification
+  banner ile native autofill'i çalıştırır
+
+framer-motion `scale` pulse — tamamlanan cell hafif zıplar, "kabul edildi"
+feedback'i verir.
+
+### 3.6 Onboarding Name Modal
+
+Phone-only signup'ta `fullName` null. Login sonrası ilk kez load'da
+`OnboardingNameDialog` çıkar (skipable + localStorage):
+
+```jsx
+// components/OnboardingNameDialog.jsx
+useEffect(() => {
+  if (!user) return;
+  if (user.fullName?.trim()) return;
+  if (window.localStorage?.getItem('n11.onboarding.nameSkipped')) return;
+  setOpen(true);
+}, [user]);
+```
+
+Save → `PATCH /api/users/me { fullName }` → `performRefresh()` (yeni JWT
+fullName claim'iyle) → modal kapanır + toast `Hoş geldin, <ad>`.
+
+App.jsx Routes ile sibling olarak mount:
+
+```jsx
+<Routes>...</Routes>
+<Footer />
+<ChatBubbleButton />
+<ChatPanel />
+<OnboardingNameDialog />   {/* her sayfada available */}
+```
+
+### 3.7 Checkout Email Gate
+
+`CheckoutPage`'te `user.email === null` ise `EmailGate` üstte render edilir,
+`canProceed` false olur:
+
+```jsx
+const needsEmail = user && !user.email;
+const canProceed = needsEmail ? false : (...existing logic);
+
+{needsEmail && <EmailGate />}
+```
+
+Kaydet butonu → `PATCH /api/users/me { email }` → `performRefresh()` → user.email
+dolar → gate unmount → kullanıcı normal akışa devam eder.
+
+Server-side de aynı koruma: order-service `user.email() == null` ise 422 döner.
+
+> Detaylı sequence diagram: [`docs/auth-flows.md` § 6](../auth-flows.md#6-checkout-email-gate--telefon-only-kullanıcı-için).
+
+---
+
+## 4. Axios Client + Interceptors
 
 `api/client.js`:
 
@@ -177,7 +377,7 @@ recursive infinite loop'u engeller.
 
 ---
 
-## 4. Search Bar + Debounced Autocomplete
+## 5. Search Bar + Debounced Autocomplete
 
 ```jsx
 const [value, setValue] = useState('');
@@ -216,7 +416,7 @@ function onSubmit(e) {
 
 ---
 
-## 5. Catalog Page — URL-Driven State
+## 6. Catalog Page — URL-Driven State
 
 ```
 /catalog?q=iphone&categoryIds=1,2&minPrice=10000&maxPrice=50000&minRating=4&inStockOnly=true&sort=price_asc&page=2
@@ -251,7 +451,7 @@ URL = single source of truth. Detay: [`docs/search.md`](../search.md#7-url-drive
 
 ---
 
-## 6. Cart Hybrid (Guest + Authenticated)
+## 7. Cart Hybrid (Guest + Authenticated)
 
 Login etmemiş user da sepete ürün ekleyebilir. `CartContext`:
 
@@ -290,7 +490,7 @@ useEffect(() => {
 
 ---
 
-## 7. AI Chatbot
+## 8. AI Chatbot
 
 `ChatBubbleButton.jsx`:
 ```jsx
@@ -313,7 +513,7 @@ Breathing pulse + sparkle twinkle. framer-motion ile sürekli animasyon. User'ı
 
 ---
 
-## 8. Build & Deploy
+## 9. Build & Deploy
 
 ```dockerfile
 FROM node:20-alpine AS build
@@ -350,7 +550,7 @@ React boot → router mount → doğru sayfa.
 
 ---
 
-## 9. Testing — Vitest
+## 10. Testing — Vitest
 
 `vitest.config.js`:
 ```js
@@ -366,7 +566,7 @@ test'ler kritik invariant'ları korur (cart toplam hesabı, login flow).
 
 ---
 
-## 10. Bilinçli Olarak Yapmadıklarımız
+## 11. Bilinçli Olarak Yapmadıklarımız
 
 - **SSR / Next.js**: SPA + nginx tek-sayfa-uygulaması. SEO için SSR mantıklı ama scope dışı.
 - **Service worker / offline**: PWA convert edilebilir. Şu an sadece online-mode.
@@ -379,7 +579,7 @@ test'ler kritik invariant'ları korur (cart toplam hesabı, login flow).
 
 ---
 
-## 11. Klasör Yapısı
+## 12. Klasör Yapısı
 
 ```
 frontend/

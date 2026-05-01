@@ -43,6 +43,8 @@ korumak zorundasın** sorularına yanıt var.
 | Mimari | [`architecture.md`](architecture.md) | Yüksek seviye diyagram, servis boundary'leri |
 | Felsefe + kararlar | [`developer-guide.md`](developer-guide.md) | "Sade > akıllı", per-service-DB, JWT, vb. |
 | Saga akışı | [`saga.md`](saga.md) | ASCII waterfall, idempotency, compensation |
+| **Auth akışları** | [`auth-flows.md`](auth-flows.md) | **3 login yolu (email, Google, telefon-OTP) sequence + onboarding + checkout email gate** |
+| **Secrets yönetimi** | [`secrets-management.md`](secrets-management.md) | **Infisical + sync-env.sh + machine identity + rotation** |
 | RabbitMQ | [`messaging.md`](messaging.md) | Exchange topology, DLX, routing key, idempotency, publish-after-commit |
 | Güvenlik | [`security.md`](security.md) | JWT HS256, refresh rotation + reuse detection, role-based access, rate limit |
 | Cache | [`caching.md`](caching.md) | Redis namespace, TTL strategy, eviction patterns, polymorphic type validator |
@@ -73,6 +75,8 @@ korumak zorundasın** sorularına yanıt var.
 | Belirti | İlgili doküman |
 |---|---|
 | 401 / 403 / oturum bozuluyor | [`security.md`](security.md) |
+| Telefon login çalışmıyor / OTP gelmiyor | [`auth-flows.md`](auth-flows.md), [`secrets-management.md`](secrets-management.md) |
+| `.env` değişti ama prod'a yansımıyor | [`secrets-management.md`](secrets-management.md) |
 | Mail gitmedi / RabbitMQ mesajı kayıp | [`messaging.md`](messaging.md), [`services/notification-service.md`](services/notification-service.md) |
 | Cache stale veri dönüyor | [`caching.md`](caching.md) |
 | Search yanlış sonuç | [`search.md`](search.md) |

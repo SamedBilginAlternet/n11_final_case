@@ -10,11 +10,13 @@ deploy boru hattı (her deploy'da Slack bildirimi).
 |---|---|
 | **Backend** | Spring Boot 3.3.4, Java 21, Spring Cloud Gateway 2023.0.3, JPA + Flyway + PostgreSQL 16 |
 | **Mesajlaşma** | RabbitMQ 3.13 — topic exchange, durable queues, JSON message converter |
-| **Auth** | JJWT 0.12.6 HS256, BCrypt, gateway-relayed Bearer header, refresh token rotation + reuse-detection |
+| **Auth** | **3 kanal**: email + şifre (BCrypt), Google OAuth2, **Telefon + SMS OTP (Firebase Phone Auth)** — hepsi tek JWT akışında birleşir; refresh token rotation + reuse-detection |
 | **Ödeme** | iyzipay-java 2.0.65 (sandbox/prod toggle); offline `MockPaymentGateway` fallback |
+| **Mail** | Resend SMTP (port 2587, DO 587'yi blokluyor) + Thymeleaf template; apex-domain DKIM verify; dev için MailHog |
 | **AI Asistan** | Pluggable provider — **Groq** (free, OpenAI-compatible, default) / **Anthropic Claude** / **Mock**; ürün katalog grounding ile RAG |
-| **Frontend** | React 18, Vite 5, Tailwind 3 (n11 magenta tema), react-router 6, axios, react-hot-toast; floating sticky chatbot |
+| **Frontend** | React 18, Vite 5, Tailwind 3 (n11 magenta tema), react-router 6, axios, react-hot-toast, framer-motion; lazy-loaded Firebase chunk; 6-kutulu OTP UI |
 | **DevOps** | Docker Compose, Jib, GitHub Actions, **DigitalOcean droplet** (SSH deploy), **GHCR** (free image registry), Caddy reverse proxy + auto-TLS, Slack webhook (yalnızca CI/CD deploy bildirimi) |
+| **Secrets** | **Infisical** managed secret store + Universal Auth machine identity → `sync-env.sh` her deploy'da `/opt/n11/.env` üretir, manuel `nano .env` yok |
 | **Observability** | Correlation ID propagation (HTTP + AMQP), Micrometer + Prometheus metrics, **OpenTelemetry → Jaeger** distributed tracing (UI :16686) |
 | **Test** | JUnit 5 + Mockito + Testcontainers (PostgreSQL) |
 
@@ -38,6 +40,8 @@ deploy boru hattı (her deploy'da Slack bildirimi).
 > - [`docs/saga.md`](docs/saga.md) — saga waterfall, compensation, idempotency
 >
 > **Topical (cross-cutting konseptler):**
+> - [`docs/auth-flows.md`](docs/auth-flows.md) — **3 login akışı (email, Google, telefon-OTP) sequence diagram + kod ref + onboarding + checkout email gate**
+> - [`docs/secrets-management.md`](docs/secrets-management.md) — **Infisical + sync-env.sh + machine identity + rotation**
 > - [`docs/messaging.md`](docs/messaging.md) — RabbitMQ topology, DLX, idempotency, publish-after-commit
 > - [`docs/security.md`](docs/security.md) — JWT, refresh rotation + reuse detection, role-based access
 > - [`docs/caching.md`](docs/caching.md) — Redis namespace, TTL, eviction
@@ -55,23 +59,60 @@ deploy boru hattı (her deploy'da Slack bildirimi).
 
 ## Mimari
 
-```
-browser → Caddy (TLS) → frontend (nginx) → api-gateway → { auth, product, cart, order, payment, chatbot }
-                                                  │
-                                                  ├─► PostgreSQL   (per-service DB)
-                                                  ├─► RabbitMQ     (saga.exchange + saga.exchange.dlx / topic)
-                                                  ├─► Redis        (cache: product detail, categories, coupons, campaigns)
-                                                  └─► Groq/Claude  (chatbot-service AI)
+```mermaid
+flowchart LR
+    Browser[Browser]
+    Phone[Phone OTP via Firebase]
+    Browser -->|HTTPS| Caddy[Caddy<br/>auto-TLS]
+    Caddy --> FE[frontend<br/>nginx + React SPA]
+    Caddy --> ADM[frontend-admin]
+    FE -->|/api/*| GW[api-gateway :8080<br/>JWT relay]
+    ADM -->|/api/*| GW
+    Browser -.->|signInWithPhoneNumber| Phone
+    Phone -.->|idToken| FE
+
+    GW --> AUTH[auth-service :8081]
+    GW --> PROD[product-service :8082]
+    GW --> CART[cart-service :8083]
+    GW --> ORD[order-service :8084]
+    GW --> PAY[payment-service :8085]
+    GW --> NOT[notification-service :8086]
+    GW --> CHB[chatbot-service :8087]
+
+    AUTH -.verifyIdToken.-> Phone
+    NOT -->|SMTP 2587| Resend[Resend<br/>apex DKIM]
+    CHB -->|HTTP| Groq[Groq / Claude API]
+
+    AUTH --> PG[(PostgreSQL 16<br/>per-service DB)]
+    PROD --> PG
+    CART --> PG
+    ORD --> PG
+    PAY --> PG
+    NOT --> PG
+    CHB --> PG
+
+    PROD --> RD[(Redis<br/>cache)]
+    CART --> RD
+
+    ORD ---|publish/consume| RMQ{{RabbitMQ 3.13<br/>topic exchange + DLX}}
+    PAY ---|publish/consume| RMQ
+    CART ---|consume| RMQ
+    NOT ---|consume| RMQ
+    PROD ---|consume| RMQ
+
+    INF[(Infisical Cloud<br/>secrets)] -.sync-env.sh.-> ENV[/opt/n11/.env]
+    ENV -.--env-file.-> GW
+    ENV -.--env-file.-> AUTH
 ```
 
-Detaylı diyagram: [`docs/architecture.md`](docs/architecture.md).
+Detaylı diyagram + tasarım kararları: [`docs/architecture.md`](docs/architecture.md).
 
 ## Servisler
 
 | Servis | Port | DB | Görev |
 |---|---|---|---|
 | **api-gateway** | 8080 | — | Public giriş, JWT relay, aggregated Swagger UI |
-| **auth-service** | 8081 | `authdb` | `register`, `login`, `refresh`, `logout`, `users/me`, access JWT + rotating opaque refresh token |
+| **auth-service** | 8081 | `authdb` | `register`, `login`, `login/phone` (Firebase OTP), Google OAuth2, `refresh`, `logout`, `users/me` (GET + PATCH), access JWT + rotating opaque refresh token |
 | **product-service** | 8082 | `productdb` | Pagination + search + categories + `/autocomplete` + ratings + per-user reviews |
 | **cart-service** | 8083 | `cartdb` | Sepet CRUD + wishlist (favoriler), `OrderConfirmed` consumer (sepeti temizler) |
 | **order-service** | 8084 | `orderdb` | Checkout (snapshot shipping address) + lifecycle state machine (CONFIRMED → PROCESSING → SHIPPED → DELIVERED) + saga publisher |
@@ -97,6 +138,87 @@ olarak deploy edilebilir.
    yayınlar; notification-service sırayla kargo + teslimat mailini atar.
 
 ASCII waterfall + idempotency notları: [`docs/saga.md`](docs/saga.md).
+
+## Kritik Akışlar
+
+### Login — 3 Yol, Tek JWT
+
+```mermaid
+sequenceDiagram
+    participant U as User
+    participant FE as frontend (LoginPage)
+    participant FB as Firebase
+    participant A as auth-service
+
+    Note over U,FE: Telefon (default tab)
+    U->>FE: +90 numarası + OTP kodu
+    FE->>FB: signInWithPhoneNumber + confirm
+    FB-->>FE: idToken
+    FE->>A: POST /api/auth/login/phone { idToken }
+    A->>FB: verifyIdToken (offline JWKS)
+    A->>A: phone numarasıyla user upsert
+
+    Note over U,FE: Email (legacy)
+    U->>FE: email + şifre
+    FE->>A: POST /api/auth/login
+
+    Note over U,FE: Google (sosyal)
+    U->>FE: "Google ile Giriş Yap"
+    FE->>A: GET /api/auth/oauth2/authorize/google
+    A->>A: SocialLoginService.upsert(google, sub, email)
+
+    A-->>FE: { accessToken } + Set-Cookie n11_refresh
+    FE->>FE: AuthContext.applyTokenResponse
+```
+
+Detay: [`docs/auth-flows.md`](docs/auth-flows.md).
+
+### Checkout Saga — RabbitMQ Choreography
+
+```mermaid
+sequenceDiagram
+    participant FE as frontend
+    participant ORD as order-service
+    participant RMQ as RabbitMQ
+    participant PAY as payment-service
+    participant CART as cart-service
+    participant NOT as notification-service
+    participant Mail as Resend SMTP
+
+    FE->>ORD: POST /api/orders/checkout (cart, address, card)
+    ORD->>ORD: Order INSERT (status=PENDING) + order.created publish
+    ORD-->>FE: 202 + orderId
+    ORD->>RMQ: order.created
+    RMQ->>PAY: payment.start.q
+    PAY->>PAY: Iyzico charge / Mock
+    alt success
+        PAY->>RMQ: payment.succeeded
+        RMQ->>ORD: payment.result.q
+        ORD->>ORD: Order CONFIRMED + order.confirmed publish
+        ORD->>RMQ: order.confirmed
+        RMQ->>CART: cart cleared
+        RMQ->>NOT: notification.order-confirmed.q
+        NOT->>Mail: ORDER_CONFIRMED Thymeleaf mail
+    else failure
+        PAY->>RMQ: payment.failed
+        ORD->>ORD: Order CANCELLED
+    end
+```
+
+Detay: [`docs/saga.md`](docs/saga.md).
+
+### Secrets Sync — Infisical → Droplet
+
+```mermaid
+flowchart LR
+    Dev[Geliştirici] -->|UI'dan edit| INF[Infisical Cloud]
+    GA[GitHub Actions deploy] -->|SCP| SCR[/opt/n11/sync-env.sh]
+    SCR -->|infisical export prod| INF
+    SCR -->|atomic write| ENV[/opt/n11/.env]
+    ENV -->|--env-file| Compose[docker compose up -d]
+```
+
+Detay: [`docs/secrets-management.md`](docs/secrets-management.md).
 
 ## Çalıştırma
 

@@ -13,19 +13,24 @@ user listing/promote.
 
 | Concern | Endpoint(ler) |
 |---|---|
-| Self-registration | `POST /api/auth/register` |
-| Login | `POST /api/auth/login` |
+| Self-registration (email + şifre) | `POST /api/auth/register` |
+| Email login | `POST /api/auth/login` |
+| **Phone login (Firebase OTP)** | **`POST /api/auth/login/phone`** |
 | Refresh access token | `POST /api/auth/refresh` |
 | Logout | `POST /api/auth/logout` |
 | OAuth2 (Google) | `GET /api/auth/oauth2/authorize/google` → callback flow |
 | Self profile | `GET /api/users/me` |
+| **Self profile update** | **`PATCH /api/users/me`** (email/fullName) |
 | Address book | `GET/POST/PUT/DELETE /api/addresses` |
 | Admin user listing | `GET /api/users`, `POST /api/users/{id}/promote\|demote` |
 
 Sorumluluk **dışı**:
 - Password reset email — yok (şimdilik); notification-service eklenebilir.
-- 2FA — yok.
+- 2FA (şifre + SMS ikisi birden) — yok; biz **passwordless phone login** yaptık.
 - Audit log tablosu — yok; structured log yeterli (`Admin <email> promoted userId=X`).
+
+> **3 login kanalı, tek JWT akışı**. Detaylı sequence diagram'lar + UI ref'leri:
+> [`docs/auth-flows.md`](../auth-flows.md).
 
 ---
 
@@ -228,7 +233,157 @@ syonu yok.
 
 ---
 
-## 4. Address Book
+## 4. Phone Login — Firebase OTP
+
+Eski email-only modeli yetmedi: TR e-ticaretin default'u **telefon + SMS OTP**
+(Trendyol, Getir, Hepsiburada). Mevcut kullanıcılara dokunmadan üçüncü bir login
+kanalı eklendi.
+
+> **Tam sequence diagram + UI tarafı**: [`docs/auth-flows.md` § 3](../auth-flows.md#3-telefon--sms-otp-firebase).
+
+### 4.1 Akış (Backend Perspektifi)
+
+```
+POST /api/auth/login/phone { idToken: "<firebase-jwt>" }
+  ↓
+auth-service:
+  1. FirebaseTokenVerifier.verify(idToken)
+       → FirebaseAuth.verifyIdToken (offline JWKS)
+       → return VerifiedPhoneIdentity(uid, "+905551234567")
+  2. PhoneLoginService.upsertByPhone("+905551234567")
+       → findByPhoneNumber OR INSERT yeni user (email=null, fullName=null)
+  3. AuthenticationService.issueTokens(user)
+       → Aynı flow olarak email login (JWT 60dk + refresh 30 gün)
+  4. Response: { accessToken } + Set-Cookie n11_refresh
+```
+
+### 4.2 `FirebaseTokenVerifier`
+
+```java
+@Service
+@ConditionalOnBean(FirebaseAuth.class)
+@RequiredArgsConstructor
+public class FirebaseTokenVerifier {
+    private final FirebaseAuth firebaseAuth;
+
+    public VerifiedPhoneIdentity verify(String idToken) {
+        FirebaseToken token = firebaseAuth.verifyIdToken(idToken, true);
+        Object phoneClaim = token.getClaims().get("phone_number");
+        if (!(phoneClaim instanceof String phone) || phone.isBlank()) {
+            throw new BadCredentialsException("Token has no phone_number claim");
+        }
+        return new VerifiedPhoneIdentity(token.getUid(), phone);
+    }
+}
+```
+
+İkinci parametre `true` — **token revocation check** açık. Firebase admin tarafında
+revoke edilen session'lar reddedilir. Doğrulama **offline** (JWKS cache 1 saat).
+
+### 4.3 `FirebaseConfig` — Conditional Wiring
+
+```java
+@Configuration
+@ConditionalOnProperty(prefix = "n11.firebase", name = "service-account-json")
+public class FirebaseConfig {
+    @Bean
+    public FirebaseApp firebaseApp(@Value("${n11.firebase.service-account-json}") String json) throws Exception {
+        if (!FirebaseApp.getApps().isEmpty()) return FirebaseApp.getInstance();
+        return FirebaseApp.initializeApp(FirebaseOptions.builder()
+                .setCredentials(GoogleCredentials.fromStream(
+                        new ByteArrayInputStream(json.getBytes(UTF_8))))
+                .build());
+    }
+}
+```
+
+`FIREBASE_SERVICE_ACCOUNT_JSON` env var'ı boşsa bean üretilmez, `FirebaseTokenVerifier`
+da `@ConditionalOnBean(FirebaseAuth.class)` ile gated. Sonuç:
+- Dev/CI Firebase config'i olmadan auth-service ayağa kalkar
+- `/login/phone` endpoint'i 401 döner (`Phone login is not configured`)
+- Email/Google login'i etkilenmez
+
+### 4.4 `PhoneLoginService` — Identity Modeli
+
+```java
+@Transactional
+public User upsertByPhone(String phoneNumber) {
+    String normalised = phoneNumber.trim();
+    return userRepository.findByPhoneNumber(normalised)
+            .orElseGet(() -> userRepository.save(User.builder()
+                    .phoneNumber(normalised)
+                    .role(Role.USER)
+                    .enabled(true)
+                    .build()));
+}
+```
+
+Email/fullName kasıtlı **null** — phone-only signup'lar için bu alanlar
+sonra toplanır:
+- **Email** — checkout sırasında gate (zorunlu)
+- **fullName** — login sonrası onboarding modal (opsiyonel)
+
+### 4.5 Schema (V5)
+
+```sql
+-- V5__phone_auth.sql
+ALTER TABLE users
+    ALTER COLUMN email     DROP NOT NULL,
+    ALTER COLUMN full_name DROP NOT NULL,
+    ADD COLUMN phone_number VARCHAR(20);
+
+CREATE UNIQUE INDEX ux_users_phone_number ON users (phone_number)
+    WHERE phone_number IS NOT NULL;
+```
+
+`partial unique index` deseni — null kayıtlar (email-only legacy users) ile çakışmaz.
+
+### 4.6 Profile Update — `PATCH /api/users/me`
+
+Telefon-only kullanıcı sonradan email/isim ekleyebilsin diye:
+
+```java
+// UserController.updateMe
+if (body.email() != null) {
+    String normalised = body.email().trim().toLowerCase();
+    if (!normalised.equalsIgnoreCase(user.getEmail())
+            && userRepository.existsByEmailIgnoreCase(normalised)) {
+        throw new ResponseStatusException(HttpStatus.CONFLICT, "Bu e-posta başka bir hesapta kayıtlı");
+    }
+    user.setEmail(normalised);
+}
+if (body.fullName() != null && !body.fullName().isBlank()) {
+    user.setFullName(body.fullName().trim());
+}
+```
+
+PATCH semantiği: gönderilmemiş alanlar el sürülmez. Frontend gerektiğinde **JWT
+refresh** çağrısı atar — yeni email/fullName claim'leri downstream servislere
+hemen yansır (order-service'de `customer_email` snapshot'ı doğru gelsin diye).
+
+### 4.7 Konfigürasyon
+
+```yaml
+# application.yml
+n11:
+  firebase:
+    service-account-json: ${FIREBASE_SERVICE_ACCOUNT_JSON:}
+```
+
+```yaml
+# docker-compose.prod.yml
+auth-service:
+  environment:
+    FIREBASE_SERVICE_ACCOUNT_JSON: ${FIREBASE_SERVICE_ACCOUNT_JSON:-}
+```
+
+JSON içerik **Infisical'da** tutulur — geliştirici sadece UI'dan rotate eder,
+deploy çalışınca yeni değer otomatik iner. Detay:
+[`docs/secrets-management.md`](../secrets-management.md).
+
+---
+
+## 5. Address Book
 
 User'ların kayıtlı teslimat adresleri. `addresses` tablosu user_id FK ile.
 
@@ -316,7 +471,7 @@ yapar — Bob, Alice'in adresini gönderemez. 404 anti-enumeration.
 
 ---
 
-## 5. Role Management
+## 6. Role Management
 
 ### Schema
 
@@ -368,7 +523,7 @@ UPDATE users SET role = 'ADMIN' WHERE email = 'samed@example.com';
 
 ---
 
-## 6. SecurityConfig — Filter Chain
+## 7. SecurityConfig — Filter Chain
 
 ```java
 http
@@ -420,7 +575,7 @@ yok, gerekmez.
 
 ---
 
-## 7. Logout
+## 8. Logout
 
 ```java
 @PostMapping("/logout")
@@ -439,7 +594,7 @@ değil.
 
 ---
 
-## 8. Bilinçli Olarak Yapmadıklarımız
+## 9. Bilinçli Olarak Yapmadıklarımız
 
 - **Email verification**: User registers, email'i hemen aktif. Production'da double-opt-in
   + verification token + email link gerekir.
@@ -454,7 +609,7 @@ değil.
 
 ---
 
-## 9. Klasör Yapısı
+## 10. Klasör Yapısı
 
 ```
 backend/auth-service/
