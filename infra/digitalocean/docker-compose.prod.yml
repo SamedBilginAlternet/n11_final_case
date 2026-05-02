@@ -173,6 +173,7 @@ services:
       GROQ_BASE_URL: ${GROQ_BASE_URL:-https://api.groq.com}
       GROQ_RECOMMENDATIONS_MODEL: ${GROQ_RECOMMENDATIONS_MODEL:-llama-3.1-8b-instant}
       ORDER_SERVICE_URL: http://order-service:8084
+      INTERNAL_API_TOKEN: ${INTERNAL_API_TOKEN}
       LOW_STOCK_ALERTS_ENABLED: ${LOW_STOCK_ALERTS_ENABLED:-false}
       LOW_STOCK_THRESHOLD: ${LOW_STOCK_THRESHOLD:-5}
       LOW_STOCK_CRON: ${LOW_STOCK_CRON:-0 0 9 * * *}
@@ -200,6 +201,7 @@ services:
       rabbitmq: { condition: service_healthy }
       cart-service: { condition: service_started }
       auth-service: { condition: service_started }
+      product-service: { condition: service_started }
     environment:
       <<: [*postgres-env, *rabbitmq-env, *otel-env, *sentry-env, *jvm-defaults]
       SERVER_PORT: 8084
@@ -207,6 +209,8 @@ services:
       JWT_SECRET: ${JWT_SECRET}
       CART_SERVICE_URL: http://cart-service:8083
       AUTH_SERVICE_URL: http://auth-service:8081
+      PRODUCT_SERVICE_URL: http://product-service:8082
+      INTERNAL_API_TOKEN: ${INTERNAL_API_TOKEN}
     restart: unless-stopped
 
   payment-service:

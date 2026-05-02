@@ -142,3 +142,9 @@ sentry:
     minimum-breadcrumb-level: info
   tags:
     service: product-service
+
+internal:
+  # Shared bearer token for service-to-service stock saga calls.  Both
+  # product-service and order-service read it from the env so the value
+  # is owned by Infisical and rotates without code changes.
+  api-token: ${INTERNAL_API_TOKEN:}

@@ -10,9 +10,13 @@ import com.n11.order.client.AddressClient;
 import com.n11.order.client.AddressSnapshot;
 import com.n11.order.client.CartClient;
 import com.n11.order.client.CartSnapshot;
+import com.n11.order.client.ProductStockClient;
+import com.n11.order.client.ProductStockClient.ReservationItem;
+import com.n11.order.client.ProductStockClient.ReservationResponse;
 import com.n11.order.domain.Order;
 import com.n11.order.domain.OrderItem;
 import com.n11.order.domain.OrderStatus;
+import com.n11.order.exception.InsufficientStockException;
 import com.n11.order.messaging.OrderEventPublisher;
 import com.n11.order.repository.OrderRepository;
 import lombok.RequiredArgsConstructor;
@@ -33,6 +37,7 @@ public class CheckoutService {
     private final OrderRepository orderRepository;
     private final CartClient cartClient;
     private final AddressClient addressClient;
+    private final ProductStockClient productStockClient;
     private final OrderEventPublisher eventPublisher;
     private final OrderMapper mapper;
 
@@ -41,6 +46,40 @@ public class CheckoutService {
         AddressSnapshot address = addressClient.fetch(addressId);
         CartSnapshot cart = cartClient.fetchCurrent();
         String correlationId = MDC.get(CorrelationId.MDC_KEY);
+
+        // Reserve stock atomically before persisting the order — if any line
+        // is short, product-service rolls back its decrements and we surface
+        // the offending ids without ever creating an order.  Synchronous on
+        // purpose: the user must see "X is out of stock" immediately, not
+        // after a saga round-trip.
+        List<ReservationItem> reservationItems = cart.items().stream()
+                .map(i -> new ReservationItem(i.productId(), i.quantity()))
+                .toList();
+        ReservationResponse reservation = productStockClient.reserve(reservationItems);
+        if (!reservation.ok()) {
+            log.info("Checkout rejected — insufficient stock for productIds={}",
+                    reservation.insufficientProductIds());
+            throw new InsufficientStockException(reservation.insufficientProductIds());
+        }
+
+        // If anything between here and commit fails, the order won't exist
+        // but the stock has already been decremented.  Hook a rollback-only
+        // compensation so the leak heals automatically — the saga path
+        // (OrderCancelled event after payment fail) covers post-commit
+        // failures, this hook covers pre-commit ones.
+        TransactionSynchronizationManager.registerSynchronization(new TransactionSynchronization() {
+            @Override
+            public void afterCompletion(int status) {
+                if (status != STATUS_COMMITTED) {
+                    log.warn("Order transaction rolled back after stock reserve, releasing stock");
+                    try {
+                        productStockClient.release(reservationItems);
+                    } catch (Exception ex) {
+                        log.error("Failed to release stock after order rollback — manual cleanup needed", ex);
+                    }
+                }
+            }
+        });
 
         Order order = Order.builder()
                 .userId(userId)

@@ -36,13 +36,18 @@ public class SecurityConfig {
 
     @Bean
     public SecurityFilterChain filterChain(HttpSecurity http,
-                                           JwtAuthenticationFilter jwtFilter) throws Exception {
+                                           JwtAuthenticationFilter jwtFilter,
+                                           InternalApiTokenFilter internalFilter) throws Exception {
         http
                 .csrf(csrf -> csrf.disable())
                 .formLogin(f -> f.disable())
                 .httpBasic(b -> b.disable())
                 .sessionManagement(s -> s.sessionCreationPolicy(SessionCreationPolicy.STATELESS))
                 .authorizeHttpRequests(auth -> auth
+                        // Internal service-to-service stock saga.  Spring
+                        // Security permits the path; the InternalApiTokenFilter
+                        // (registered below) is the actual gate.
+                        .requestMatchers("/api/products/internal/**").permitAll()
                         // Admin metrics: require auth; @PreAuthorize on controller
                         // gates ADMIN.  Listed BEFORE the public GET matcher so
                         // it isn't shadowed by /api/products/** permitAll.
@@ -68,6 +73,7 @@ public class SecurityConfig {
                         .requestMatchers("/actuator/**", "/v3/api-docs/**", "/swagger-ui/**", "/swagger-ui.html").permitAll()
                         .anyRequest().permitAll()
                 )
+                .addFilterBefore(internalFilter, UsernamePasswordAuthenticationFilter.class)
                 .addFilterBefore(jwtFilter, UsernamePasswordAuthenticationFilter.class);
         return http.build();
     }

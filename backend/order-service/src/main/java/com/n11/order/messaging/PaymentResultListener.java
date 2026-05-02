@@ -3,6 +3,7 @@ package com.n11.order.messaging;
 import com.n11.common.correlation.CorrelationId;
 import com.n11.common.event.OrderCancelledEvent;
 import com.n11.common.event.OrderConfirmedEvent;
+import com.n11.common.event.OrderItemPayload;
 import com.n11.common.event.PaymentFailedEvent;
 import com.n11.common.event.PaymentSucceededEvent;
 import com.n11.common.saga.SagaTopology;
@@ -15,6 +16,8 @@ import org.slf4j.MDC;
 import org.springframework.amqp.rabbit.annotation.RabbitListener;
 import org.springframework.stereotype.Component;
 import org.springframework.transaction.annotation.Transactional;
+
+import java.util.List;
 
 @Component
 @RequiredArgsConstructor
@@ -62,9 +65,16 @@ public class PaymentResultListener {
             order.setFailureReason(event.reason());
             orderRepository.save(order);
             log.warn("Order {} → CANCELLED (reason={})", order.getId(), event.reason());
+            // Snapshot the items so product-service knows what stock to
+            // restore.  Done before the after-commit publish so the listener
+            // doesn't have to re-load the order.
+            List<OrderItemPayload> itemsPayload = order.getItems().stream()
+                    .map(i -> new OrderItemPayload(i.getProductId(), i.getProductName(),
+                            i.getQuantity(), i.getUnitPrice()))
+                    .toList();
             publisher.publishOrderCancelled(OrderCancelledEvent.of(
                     order.getId(), order.getUserId(), order.getUserEmail(), event.reason(),
-                    order.getCouponCode(), event.correlationId()));
+                    order.getCouponCode(), itemsPayload, event.correlationId()));
         });
     }
 

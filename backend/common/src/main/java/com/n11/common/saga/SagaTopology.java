@@ -27,6 +27,10 @@ public final class SagaTopology {
 
     public static final class Queue {
         public static final String PAYMENT_ORDER_CREATED = "payment.order-created.q";
+        // product-service consumes ORDER_CANCELLED so it can compensate the
+        // stock decrement performed during checkout's reservation step.
+        public static final String PRODUCT_ORDER_CANCELLED_STOCK = "product.order-cancelled.stock.q";
+        public static final String PRODUCT_ORDER_CANCELLED_STOCK_DLQ = PRODUCT_ORDER_CANCELLED_STOCK + ".dlq";
         public static final String ORDER_PAYMENT_SUCCEEDED = "order.payment-succeeded.q";
         public static final String ORDER_PAYMENT_FAILED = "order.payment-failed.q";
         public static final String CART_ORDER_CONFIRMED = "cart.order-confirmed.q";

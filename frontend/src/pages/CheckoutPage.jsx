@@ -70,7 +70,18 @@ export default function CheckoutPage() {
       clearLocal();
       navigate(`/checkout/processing/${data.id}`, { replace: true });
     } catch (err) {
-      toast.error(err.response?.data?.message || 'Ödeme başlatılamadı');
+      // 409 Conflict + insufficientProductIds = stock ran out for at least
+      // one cart line.  Surface a precise message so the user knows it's
+      // not a payment error; rely on backend's i18n message + the id list
+      // for any future "highlight the row" UX.
+      if (err.response?.status === 409) {
+        const ids = err.response.data?.insufficientProductIds;
+        const detail = err.response.data?.detail || err.response.data?.message
+          || 'Sepetindeki bazı ürünler için stok yetersiz.';
+        toast.error(ids?.length ? `${detail} (Ürün id: ${ids.join(', ')})` : detail);
+      } else {
+        toast.error(err.response?.data?.message || 'Ödeme başlatılamadı');
+      }
       setSubmitting(false);
     }
   }
