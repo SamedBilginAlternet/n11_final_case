@@ -57,7 +57,7 @@ flowchart LR
 
     UI -->|GET image<br/>cdn.n11proje...| Caddy
     Caddy -->|reverse_proxy| MinIO
-    Admin -->|POST multipart<br/>/api/products/admin/{id}/image| Caddy
+    Admin -->|POST multipart<br/>/api/products/admin/&#123;id&#125;/image| Caddy
     Caddy -->|api-gateway| PS
     PS -.->|putObject<br/>S3 SDK| MinIO
 ```
