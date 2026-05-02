@@ -39,13 +39,13 @@ public class TrLocationCatalog {
      * Turkish-specific letters straight to their ASCII counterparts; the
      * normalised key is what we store and what we look up.
      */
-    private static final Map<Character, Character> ASCII_FOLD = Map.of(
-            'ı', 'i', 'İ', 'i',
-            'ş', 's', 'Ş', 's',
-            'ğ', 'g', 'Ğ', 'g',
-            'ü', 'u', 'Ü', 'u',
-            'ö', 'o', 'Ö', 'o',
-            'ç', 'c', 'Ç', 'c');
+    private static final Map<Character, Character> ASCII_FOLD = Map.ofEntries(
+            Map.entry('ı', 'i'), Map.entry('İ', 'i'),
+            Map.entry('ş', 's'), Map.entry('Ş', 's'),
+            Map.entry('ğ', 'g'), Map.entry('Ğ', 'g'),
+            Map.entry('ü', 'u'), Map.entry('Ü', 'u'),
+            Map.entry('ö', 'o'), Map.entry('Ö', 'o'),
+            Map.entry('ç', 'c'), Map.entry('Ç', 'c'));
 
     private final ObjectMapper objectMapper;
 
