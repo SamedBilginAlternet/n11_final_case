@@ -17,6 +17,7 @@ public final class SagaTopology {
         public static final String PAYMENT_FAILED = "payment.failed";
         public static final String ORDER_CONFIRMED = "order.confirmed";
         public static final String ORDER_CANCELLED = "order.cancelled";
+        public static final String ORDER_PROCESSING = "order.processing";
         public static final String ORDER_SHIPPED = "order.shipped";
         public static final String ORDER_DELIVERED = "order.delivered";
         public static final String LOW_STOCK_REPORT = "inventory.low-stock-report";
@@ -37,6 +38,7 @@ public final class SagaTopology {
 
         // Notification-service: one queue per lifecycle event we mail on.
         public static final String NOTIFICATION_ORDER_CONFIRMED = "notification.order-confirmed.q";
+        public static final String NOTIFICATION_ORDER_PROCESSING = "notification.order-processing.q";
         public static final String NOTIFICATION_ORDER_SHIPPED = "notification.order-shipped.q";
         public static final String NOTIFICATION_ORDER_DELIVERED = "notification.order-delivered.q";
         public static final String NOTIFICATION_LOW_STOCK = "notification.low-stock.q";
@@ -47,6 +49,7 @@ public final class SagaTopology {
         public static final String CART_ORDER_CREATED_COUPON_DLQ = CART_ORDER_CREATED_COUPON + ".dlq";
         public static final String CART_ORDER_CANCELLED_COUPON_DLQ = CART_ORDER_CANCELLED_COUPON + ".dlq";
         public static final String NOTIFICATION_ORDER_CONFIRMED_DLQ = NOTIFICATION_ORDER_CONFIRMED + ".dlq";
+        public static final String NOTIFICATION_ORDER_PROCESSING_DLQ = NOTIFICATION_ORDER_PROCESSING + ".dlq";
         public static final String NOTIFICATION_ORDER_SHIPPED_DLQ = NOTIFICATION_ORDER_SHIPPED + ".dlq";
         public static final String NOTIFICATION_ORDER_DELIVERED_DLQ = NOTIFICATION_ORDER_DELIVERED + ".dlq";
         public static final String NOTIFICATION_LOW_STOCK_DLQ = NOTIFICATION_LOW_STOCK + ".dlq";

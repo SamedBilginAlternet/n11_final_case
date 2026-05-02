@@ -2,6 +2,7 @@ package com.n11.order.service;
 
 import com.n11.common.correlation.CorrelationId;
 import com.n11.common.event.OrderDeliveredEvent;
+import com.n11.common.event.OrderProcessingEvent;
 import com.n11.common.event.OrderShippedEvent;
 import com.n11.order.api.StatusUpdateRequest;
 import com.n11.order.api.dto.OrderDto;
@@ -30,9 +31,10 @@ import org.springframework.web.server.ResponseStatusException;
  * <p>SecurityConfig guards these endpoints with {@code hasRole("ADMIN")} so
  * only an admin can move an order through processing/shipped/delivered.</p>
  *
- * <p>SHIPPED + DELIVERED transitions publish saga events for notification-service
- * to send kargo + teslimat mailleri. Publish is registered as an
- * after-commit hook so a rolled-back transition doesn't leak a phantom mail.</p>
+ * <p>PROCESSING + SHIPPED + DELIVERED transitions publish saga events for
+ * notification-service to send hazırlanıyor + kargo + teslimat mailleri.
+ * Publish is registered as an after-commit hook so a rolled-back transition
+ * doesn't leak a phantom mail.</p>
  */
 @Service
 @RequiredArgsConstructor
@@ -71,7 +73,11 @@ public class OrderStatusService {
         log.info("Admin transitioned order id={} → {}", orderId, next);
 
         String correlationId = MDC.get(CorrelationId.MDC_KEY);
-        if (next == OrderStatus.SHIPPED) {
+        if (next == OrderStatus.PROCESSING) {
+            OrderProcessingEvent event = OrderProcessingEvent.of(
+                    saved.getId(), saved.getUserId(), saved.getUserEmail(), correlationId);
+            registerAfterCommit(() -> eventPublisher.publishOrderProcessing(event));
+        } else if (next == OrderStatus.SHIPPED) {
             OrderShippedEvent event = OrderShippedEvent.of(
                     saved.getId(), saved.getUserId(), saved.getUserEmail(),
                     saved.getCarrier(), saved.getTrackingNumber(), correlationId);

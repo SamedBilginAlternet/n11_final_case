@@ -19,6 +19,7 @@ import org.springframework.context.annotation.Configuration;
  * <pre>
  *   saga.exchange (topic, durable)
  *     ├─ order.confirmed   → notification.order-confirmed.q   → OrderConfirmedNotifier
+ *     ├─ order.processing  → notification.order-processing.q  → OrderProcessingNotifier
  *     ├─ order.shipped     → notification.order-shipped.q     → OrderShippedNotifier
  *     └─ order.delivered   → notification.order-delivered.q   → OrderDeliveredNotifier
  * </pre>
@@ -68,6 +69,32 @@ public class RabbitConfig {
                                                      TopicExchange sagaDlxExchange) {
         return BindingBuilder.bind(notificationOrderConfirmedDlq).to(sagaDlxExchange)
                 .with(SagaTopology.RoutingKey.ORDER_CONFIRMED);
+    }
+
+    // ------------------------------------------------------ order.processing
+
+    @Bean
+    public Queue notificationOrderProcessingQueue() {
+        return primaryQueue(SagaTopology.Queue.NOTIFICATION_ORDER_PROCESSING);
+    }
+
+    @Bean
+    public Binding bindNotificationOrderProcessing(Queue notificationOrderProcessingQueue,
+                                                   TopicExchange sagaExchange) {
+        return BindingBuilder.bind(notificationOrderProcessingQueue).to(sagaExchange)
+                .with(SagaTopology.RoutingKey.ORDER_PROCESSING);
+    }
+
+    @Bean
+    public Queue notificationOrderProcessingDlq() {
+        return QueueBuilder.durable(SagaTopology.Queue.NOTIFICATION_ORDER_PROCESSING_DLQ).build();
+    }
+
+    @Bean
+    public Binding bindNotificationOrderProcessingDlq(Queue notificationOrderProcessingDlq,
+                                                      TopicExchange sagaDlxExchange) {
+        return BindingBuilder.bind(notificationOrderProcessingDlq).to(sagaDlxExchange)
+                .with(SagaTopology.RoutingKey.ORDER_PROCESSING);
     }
 
     // ------------------------------------------------------ order.shipped

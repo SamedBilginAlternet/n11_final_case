@@ -4,6 +4,7 @@ import com.n11.common.event.OrderCancelledEvent;
 import com.n11.common.event.OrderConfirmedEvent;
 import com.n11.common.event.OrderCreatedEvent;
 import com.n11.common.event.OrderDeliveredEvent;
+import com.n11.common.event.OrderProcessingEvent;
 import com.n11.common.event.OrderShippedEvent;
 import com.n11.common.saga.SagaTopology;
 import lombok.RequiredArgsConstructor;
@@ -31,6 +32,11 @@ public class OrderEventPublisher {
     public void publishOrderCancelled(OrderCancelledEvent event) {
         rabbitTemplate.convertAndSend(SagaTopology.EXCHANGE, SagaTopology.RoutingKey.ORDER_CANCELLED, event);
         log.info("Published OrderCancelled orderId={} eventId={}", event.orderId(), event.eventId());
+    }
+
+    public void publishOrderProcessing(OrderProcessingEvent event) {
+        rabbitTemplate.convertAndSend(SagaTopology.EXCHANGE, SagaTopology.RoutingKey.ORDER_PROCESSING, event);
+        log.info("Published OrderProcessing orderId={} eventId={}", event.orderId(), event.eventId());
     }
 
     public void publishOrderShipped(OrderShippedEvent event) {
