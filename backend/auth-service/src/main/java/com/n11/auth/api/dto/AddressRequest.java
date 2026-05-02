@@ -1,8 +1,10 @@
 package com.n11.auth.api.dto;
 
+import com.n11.auth.service.ValidTrLocation;
 import jakarta.validation.constraints.NotBlank;
 import jakarta.validation.constraints.Size;
 
+@ValidTrLocation
 public record AddressRequest(
         @NotBlank @Size(max = 60) String title,
         @NotBlank @Size(max = 120) String recipientName,

@@ -1,7 +1,8 @@
-import { useEffect, useState } from 'react';
+import { useEffect, useMemo, useState } from 'react';
 import toast from 'react-hot-toast';
 import { Plus, Star, Trash2, Pencil, X } from 'lucide-react';
 import { api } from '../api/client.js';
+import trLocations from '../data/tr-locations.json';
 
 const EMPTY = {
   id: null,
@@ -153,6 +154,19 @@ function AddressCard({ address, onEdit, onDelete, onMakeDefault }) {
 
 function AddressForm({ value, onChange, onSubmit, onCancel }) {
   const set = (k) => (e) => onChange({ ...value, [k]: e.target.value });
+
+  // Districts cascade off the picked city; the district list is reset whenever
+  // the city changes so a stale "Kadıköy" can't survive a switch to Ankara.
+  const districts = useMemo(() => {
+    const row = trLocations.find((c) => c.city === value.city);
+    return row ? row.districts : [];
+  }, [value.city]);
+
+  function onCityChange(e) {
+    const next = e.target.value;
+    onChange({ ...value, city: next, district: '' });
+  }
+
   return (
     <form onSubmit={onSubmit} className="card space-y-3 p-4">
       <header className="flex items-center justify-between">
@@ -167,8 +181,23 @@ function AddressForm({ value, onChange, onSubmit, onCancel }) {
         <Field label="Telefon" required maxLength={32} value={value.phone} onChange={set('phone')} placeholder="+905551234567" />
         <Field label="Posta Kodu" maxLength={16} value={value.postalCode} onChange={set('postalCode')} />
         <Field className="md:col-span-2" label="Adres" required maxLength={255} value={value.line1} onChange={set('line1')} />
-        <Field label="İl" required maxLength={80} value={value.city} onChange={set('city')} />
-        <Field label="İlçe" maxLength={80} value={value.district} onChange={set('district')} />
+        <SelectField label="İl" required value={value.city} onChange={onCityChange}>
+          <option value="">Seçiniz…</option>
+          {trLocations.map((c) => (
+            <option key={c.city} value={c.city}>{c.city}</option>
+          ))}
+        </SelectField>
+        <SelectField
+          label="İlçe"
+          value={value.district}
+          onChange={set('district')}
+          disabled={!value.city}
+        >
+          <option value="">{value.city ? 'Seçiniz…' : 'Önce il seç'}</option>
+          {districts.map((d) => (
+            <option key={d} value={d}>{d}</option>
+          ))}
+        </SelectField>
       </div>
       <label className="flex items-center gap-2 text-sm text-gray-600">
         <input
@@ -191,6 +220,15 @@ function Field({ label, className = '', ...props }) {
     <label className={`block ${className}`}>
       <span className="mb-1 block text-xs font-medium text-gray-500">{label}</span>
       <input className="input w-full" {...props} />
+    </label>
+  );
+}
+
+function SelectField({ label, className = '', children, ...props }) {
+  return (
+    <label className={`block ${className}`}>
+      <span className="mb-1 block text-xs font-medium text-gray-500">{label}</span>
+      <select className="input w-full" {...props}>{children}</select>
     </label>
   );
 }
