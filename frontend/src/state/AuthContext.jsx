@@ -9,6 +9,15 @@ export function AuthProvider({ children }) {
   const [user, setUser] = useState(() => tokenStore.getUser());
   const [token, setToken] = useState(() => tokenStore.getAccess());
   const [loading, setLoading] = useState(false);
+  // True while the silent /refresh exchange is in flight on first mount.
+  // Email links land in a fresh tab where sessionStorage is empty, so the
+  // access token is null until /refresh resolves; without gating, every
+  // ProtectedRoute would redirect to /login before the cookie-backed
+  // session is restored.  Initial value mirrors the boot-effect guard:
+  // we only need to wait if there's a sticky user but no access token yet.
+  const [booting, setBooting] = useState(
+    () => !tokenStore.getAccess() && !!tokenStore.getUser(),
+  );
   const bootRef = useRef(false);
 
   // Keep React state in sync with tokenStore mutations from outside the context
@@ -41,11 +50,18 @@ export function AuthProvider({ children }) {
     if (bootRef.current) return;
     bootRef.current = true;
     if (tokenStore.getAccess()) return;
-    if (!tokenStore.getUser()) return;
+    if (!tokenStore.getUser()) {
+      setBooting(false);
+      return;
+    }
 
-    performRefresh().catch(() => {
-      tokenStore.clear();
-    });
+    performRefresh()
+      .catch(() => {
+        tokenStore.clear();
+      })
+      .finally(() => {
+        setBooting(false);
+      });
   }, []);
 
   const applyTokenResponse = useCallback((data) => {
@@ -146,7 +162,7 @@ export function AuthProvider({ children }) {
 
   return (
     <AuthContext.Provider
-      value={{ user, token, loading, login, loginWithPhone, register, logout, hydrateFromOAuth, isAuthed: !!token }}
+      value={{ user, token, loading, booting, login, loginWithPhone, register, logout, hydrateFromOAuth, isAuthed: !!token }}
     >
       {children}
     </AuthContext.Provider>
