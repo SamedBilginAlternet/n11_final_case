@@ -1,5 +1,20 @@
 # n11 Final Case — E-Ticaret
 
+## 🚀 Canlı Ortam
+
+| | URL |
+|---|---|
+| 🛍️ **Storefront** | <https://n11proje.samedbilgin.com> |
+| 🛠️ **Admin Paneli** | <https://n11proje.samedbilgin.com/admin> |
+| 📚 **Swagger (API Docs)** | <https://n11proje.samedbilgin.com/swagger-ui.html> |
+| 🖼️ **CDN (ürün görselleri)** | <https://cdn.n11proje.samedbilgin.com> |
+| 🔍 **Jaeger Tracing UI** | <https://jaeger.n11proje.samedbilgin.com> *(basic-auth)* |
+| 📦 **MinIO Konsol** | <https://minio.n11proje.samedbilgin.com> *(basic-auth)* |
+
+> DigitalOcean droplet + GHCR + Caddy auto-TLS üzerinde çalışıyor; her `main` push'unda GitHub Actions ile otomatik deploy.
+
+---
+
 Spring Boot 3.3 / Java 21 **7 mikroservis** (auth, product, cart, order, payment,
 **chatbot (Groq / Claude)** ve gateway), RabbitMQ üzerinde **choreography saga**, JWT auth,
 Iyzico ödeme entegrasyonu, **n11 magenta** temalı React + Vite + Tailwind frontend
