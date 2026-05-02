@@ -1,11 +1,28 @@
 import { useEffect, useMemo, useState } from 'react';
 import toast from 'react-hot-toast';
-import { Plus, Star, Trash2, Pencil, X } from 'lucide-react';
+import { Plus, Star, Trash2, Pencil, X, Home, Briefcase, MapPin } from 'lucide-react';
 import { api } from '../api/client.js';
 import trLocations from '../data/tr-locations.json';
 
+const ADDRESS_TYPES = [
+  { value: 'HOME',   label: 'Ev',    Icon: Home },
+  { value: 'OFFICE', label: 'Ofis',  Icon: Briefcase },
+  { value: 'OTHER',  label: 'Diğer', Icon: MapPin },
+];
+
+// Backend (TrPhoneValidator) accepts the same shape: strip everything that
+// isn't a digit, then require optional `90`, optional `0`, leading `5`, and
+// 9 trailing digits.  Mirroring it client-side gives instant feedback and
+// keeps the validator and the UI in sync.
+const TR_PHONE_RE = /^(90)?0?5\d{9}$/;
+function isValidTrPhone(input) {
+  if (!input) return false;
+  return TR_PHONE_RE.test(input.replace(/\D/g, ''));
+}
+
 const EMPTY = {
   id: null,
+  addressType: 'HOME',
   title: '',
   recipientName: '',
   phone: '',
@@ -36,6 +53,10 @@ export default function AddressBookPage() {
 
   async function onSave(e) {
     e.preventDefault();
+    if (!isValidTrPhone(editing.phone)) {
+      toast.error('Geçerli bir TR cep numarası gir (örn. 0555 123 45 67)');
+      return;
+    }
     const body = { ...editing };
     delete body.id;
     try {
@@ -118,12 +139,22 @@ export default function AddressBookPage() {
 }
 
 function AddressCard({ address, onEdit, onDelete, onMakeDefault }) {
+  const typeMeta = ADDRESS_TYPES.find((t) => t.value === address.addressType) || ADDRESS_TYPES[2];
+  const TypeIcon = typeMeta.Icon;
   return (
     <article className="card relative space-y-2 p-4">
       <div className="flex items-start justify-between gap-3">
-        <div>
-          <h3 className="text-sm font-semibold text-gray-800">{address.title}</h3>
-          <p className="text-xs text-gray-500">{address.recipientName} · {address.phone}</p>
+        <div className="flex items-start gap-2">
+          <span
+            className="mt-0.5 inline-flex h-7 w-7 items-center justify-center rounded-full bg-n11-pinkBg text-n11-pink"
+            title={typeMeta.label}
+          >
+            <TypeIcon className="h-4 w-4" />
+          </span>
+          <div>
+            <h3 className="text-sm font-semibold text-gray-800">{address.title}</h3>
+            <p className="text-xs text-gray-500">{address.recipientName} · {address.phone}</p>
+          </div>
         </div>
         {address.defaultAddress && (
           <span className="flex items-center gap-1 rounded-full bg-amber-100 px-2 py-0.5 text-[11px] font-semibold text-amber-700">
@@ -167,6 +198,24 @@ function AddressForm({ value, onChange, onSubmit, onCancel }) {
     onChange({ ...value, city: next, district: '' });
   }
 
+  // Picking a type also seeds the title so the most common case (Ev/Ofis)
+  // skips an extra keystroke.  If the user has already typed a custom title
+  // we don't clobber it — only the empty/default-matching cases get
+  // overwritten.
+  function onTypeChange(nextType) {
+    const matchedDefault = ADDRESS_TYPES.find((t) => t.label === value.title);
+    const shouldSeed = !value.title || matchedDefault;
+    const seededTitle = ADDRESS_TYPES.find((t) => t.value === nextType).label;
+    onChange({
+      ...value,
+      addressType: nextType,
+      title: shouldSeed ? seededTitle : value.title,
+    });
+  }
+
+  const phoneTouched = value.phone.length > 0;
+  const phoneValid = isValidTrPhone(value.phone);
+
   return (
     <form onSubmit={onSubmit} className="card space-y-3 p-4">
       <header className="flex items-center justify-between">
@@ -175,10 +224,42 @@ function AddressForm({ value, onChange, onSubmit, onCancel }) {
           <X className="h-4 w-4" />
         </button>
       </header>
+      <div>
+        <span className="mb-1 block text-xs font-medium text-gray-500">Adres tipi</span>
+        <div className="flex flex-wrap gap-2">
+          {ADDRESS_TYPES.map(({ value: v, label, Icon }) => {
+            const active = value.addressType === v;
+            return (
+              <button
+                key={v}
+                type="button"
+                onClick={() => onTypeChange(v)}
+                className={`flex items-center gap-1.5 rounded-full border px-3 py-1.5 text-xs font-medium transition ${
+                  active
+                    ? 'border-n11-pink bg-n11-pinkBg text-n11-pink ring-2 ring-n11-pink/30'
+                    : 'border-gray-200 bg-white text-gray-600 hover:border-gray-300 hover:bg-gray-50'
+                }`}
+                aria-pressed={active}
+              >
+                <Icon className="h-3.5 w-3.5" />
+                {label}
+              </button>
+            );
+          })}
+        </div>
+      </div>
       <div className="grid gap-3 md:grid-cols-2">
-        <Field label="Başlık (Ev, Ofis...)" required maxLength={60} value={value.title} onChange={set('title')} />
+        <Field label="Başlık (örn. Ev, Annemin evi)" required maxLength={60} value={value.title} onChange={set('title')} />
         <Field label="Alıcı Adı" required maxLength={120} value={value.recipientName} onChange={set('recipientName')} />
-        <Field label="Telefon" required maxLength={32} value={value.phone} onChange={set('phone')} placeholder="+905551234567" />
+        <PhoneField
+          label="Telefon"
+          required
+          maxLength={32}
+          value={value.phone}
+          onChange={set('phone')}
+          touched={phoneTouched}
+          valid={phoneValid}
+        />
         <Field label="Posta Kodu" maxLength={16} value={value.postalCode} onChange={set('postalCode')} />
         <Field className="md:col-span-2" label="Adres" required maxLength={255} value={value.line1} onChange={set('line1')} />
         <SelectField label="İl" required value={value.city} onChange={onCityChange}>
@@ -229,6 +310,30 @@ function SelectField({ label, className = '', children, ...props }) {
     <label className={`block ${className}`}>
       <span className="mb-1 block text-xs font-medium text-gray-500">{label}</span>
       <select className="input w-full" {...props}>{children}</select>
+    </label>
+  );
+}
+
+function PhoneField({ label, touched, valid, className = '', ...props }) {
+  // Inline cue: red border + helper line once the user has typed something
+  // but the digits don't add up to a TR mobile.  Untouched fields stay
+  // neutral so the form doesn't yell at empty state.
+  const showError = touched && !valid;
+  return (
+    <label className={`block ${className}`}>
+      <span className="mb-1 block text-xs font-medium text-gray-500">{label}</span>
+      <input
+        type="tel"
+        className={`input w-full ${showError ? 'border-red-400 focus:ring-red-300' : ''}`}
+        placeholder="0555 123 45 67"
+        autoComplete="tel"
+        {...props}
+      />
+      {showError && (
+        <span className="mt-1 block text-[11px] text-red-500">
+          Geçerli bir TR cep numarası gir (örn. 0555 123 45 67)
+        </span>
+      )}
     </label>
   );
 }

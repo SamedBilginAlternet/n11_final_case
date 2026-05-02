@@ -21,6 +21,10 @@ public class Address {
     @Column(name = "user_id", nullable = false)
     private Long userId;
 
+    @Enumerated(EnumType.STRING)
+    @Column(name = "address_type", nullable = false, length = 20)
+    private AddressType addressType;
+
     @Column(nullable = false, length = 60)
     private String title;
 

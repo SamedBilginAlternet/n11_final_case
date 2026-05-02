@@ -42,6 +42,7 @@ public class AddressService {
 
         Address entity = Address.builder()
                 .userId(userId)
+                .addressType(req.addressType())
                 .title(req.title())
                 .recipientName(req.recipientName())
                 .phone(req.phone())
@@ -67,6 +68,7 @@ public class AddressService {
             entity.setDefaultAddress(false);
         }
 
+        entity.setAddressType(req.addressType());
         entity.setTitle(req.title());
         entity.setRecipientName(req.recipientName());
         entity.setPhone(req.phone());
@@ -89,7 +91,8 @@ public class AddressService {
     }
 
     public static AddressDto toDto(Address a) {
-        return new AddressDto(a.getId(), a.getTitle(), a.getRecipientName(), a.getPhone(),
-                a.getLine1(), a.getCity(), a.getDistrict(), a.getPostalCode(), a.isDefaultAddress());
+        return new AddressDto(a.getId(), a.getAddressType(), a.getTitle(), a.getRecipientName(),
+                a.getPhone(), a.getLine1(), a.getCity(), a.getDistrict(),
+                a.getPostalCode(), a.isDefaultAddress());
     }
 }

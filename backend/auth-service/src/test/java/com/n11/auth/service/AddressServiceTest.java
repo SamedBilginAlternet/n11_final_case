@@ -3,6 +3,7 @@ package com.n11.auth.service;
 import com.n11.auth.api.dto.AddressDto;
 import com.n11.auth.api.dto.AddressRequest;
 import com.n11.auth.domain.Address;
+import com.n11.auth.domain.AddressType;
 import com.n11.auth.repository.AddressRepository;
 import jakarta.persistence.EntityNotFoundException;
 import org.junit.jupiter.api.Test;
@@ -30,7 +31,7 @@ class AddressServiceTest {
     @InjectMocks AddressService service;
 
     private AddressRequest req(boolean def) {
-        return new AddressRequest("Ev", "Ada Lovelace", "+905551234567",
+        return new AddressRequest(AddressType.HOME, "Ev", "Ada Lovelace", "+905551234567",
                 "Bağdat Cd 100", "Istanbul", "Kadıköy", "34710", def);
     }
 
