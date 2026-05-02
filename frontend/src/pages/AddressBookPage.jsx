@@ -2,6 +2,7 @@ import { useEffect, useMemo, useState } from 'react';
 import toast from 'react-hot-toast';
 import { Plus, Star, Trash2, Pencil, X, Home, Briefcase, MapPin } from 'lucide-react';
 import { api } from '../api/client.js';
+import { useConfirm } from '../state/ConfirmContext.jsx';
 import trLocations from '../data/tr-locations.json';
 
 const ADDRESS_TYPES = [
@@ -37,6 +38,7 @@ export default function AddressBookPage() {
   const [addresses, setAddresses] = useState([]);
   const [loading, setLoading] = useState(true);
   const [editing, setEditing] = useState(null); // null | EMPTY | existing
+  const confirm = useConfirm();
 
   async function load() {
     try {
@@ -75,7 +77,14 @@ export default function AddressBookPage() {
   }
 
   async function onDelete(id) {
-    if (!window.confirm('Bu adresi silmek istediğine emin misin?')) return;
+    const ok = await confirm({
+      title: 'Adresi sil',
+      message: 'Bu adresi silmek istediğine emin misin? Bu işlem geri alınamaz.',
+      confirmLabel: 'Sil',
+      cancelLabel: 'Vazgeç',
+      tone: 'danger',
+    });
+    if (!ok) return;
     try {
       await api.delete(`/api/addresses/${id}`);
       toast('Adres silindi');

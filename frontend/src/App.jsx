@@ -5,6 +5,7 @@ import ProtectedRoute from './components/ProtectedRoute.jsx';
 import ChatBubbleButton from './components/chatbot/ChatBubbleButton.jsx';
 import ChatPanel from './components/chatbot/ChatPanel.jsx';
 import OnboardingNameDialog from './components/OnboardingNameDialog.jsx';
+import { ConfirmProvider } from './state/ConfirmContext.jsx';
 import HomePage from './pages/HomePage.jsx';
 import LoginPage from './pages/LoginPage.jsx';
 import OAuthCallbackPage from './pages/OAuthCallbackPage.jsx';
@@ -21,10 +22,11 @@ import ProfilePage from './pages/ProfilePage.jsx';
 
 export default function App() {
   return (
-    <div className="flex min-h-full flex-col bg-gray-50">
-      <Header />
-      <main className="mx-auto w-full max-w-7xl flex-1 px-3 py-4 md:px-4 md:py-6">
-        <Routes>
+    <ConfirmProvider>
+      <div className="flex min-h-full flex-col bg-gray-50">
+        <Header />
+        <main className="mx-auto w-full max-w-7xl flex-1 px-3 py-4 md:px-4 md:py-6">
+          <Routes>
           <Route path="/" element={<HomePage />} />
           <Route path="/catalog" element={<ProductListPage />} />
           <Route path="/products/:slug" element={<ProductDetailPage />} />
@@ -84,9 +86,10 @@ export default function App() {
         </Routes>
       </main>
       <Footer />
-      <ChatBubbleButton />
-      <ChatPanel />
-      <OnboardingNameDialog />
-    </div>
+        <ChatBubbleButton />
+        <ChatPanel />
+        <OnboardingNameDialog />
+      </div>
+    </ConfirmProvider>
   );
 }

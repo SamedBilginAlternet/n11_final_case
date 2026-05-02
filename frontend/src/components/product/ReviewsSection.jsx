@@ -5,10 +5,12 @@ import { Star, Trash2 } from 'lucide-react';
 import { motion } from 'framer-motion';
 import { api } from '../../api/client.js';
 import { useAuth } from '../../state/AuthContext.jsx';
+import { useConfirm } from '../../state/ConfirmContext.jsx';
 import RatingStars from './RatingStars.jsx';
 
 export default function ReviewsSection({ productId, onAggregateChange }) {
   const { isAuthed } = useAuth();
+  const confirm = useConfirm();
   const [reviews, setReviews] = useState([]);
   const [loading, setLoading] = useState(true);
   const [mine, setMine] = useState(null);
@@ -54,7 +56,14 @@ export default function ReviewsSection({ productId, onAggregateChange }) {
   }
 
   async function onDelete() {
-    if (!window.confirm('Yorumunu silmek istediğine emin misin?')) return;
+    const ok = await confirm({
+      title: 'Yorumu sil',
+      message: 'Yorumunu silmek istediğine emin misin? Bu işlem geri alınamaz.',
+      confirmLabel: 'Sil',
+      cancelLabel: 'Vazgeç',
+      tone: 'danger',
+    });
+    if (!ok) return;
     try {
       await api.delete(`/api/products/${productId}/reviews`);
       toast('Yorumun silindi');
