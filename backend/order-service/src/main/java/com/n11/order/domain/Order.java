@@ -120,14 +120,18 @@ public class Order {
             throw new IllegalStateException("Illegal transition: " + this.status + " → " + next);
         }
         this.status = next;
+        // The state machine in isAllowed() forbids re-entering a state, so each
+        // *At field is guaranteed null when its case fires — no idempotency
+        // guard needed here.  Switch is exhaustive over OrderStatus so adding
+        // a new enum value will fail the build until it's wired in.
         Instant now = Instant.now();
         switch (next) {
-            case CONFIRMED   -> { if (this.confirmedAt == null)  this.confirmedAt = now; }
-            case PROCESSING  -> { if (this.processingAt == null) this.processingAt = now; }
-            case SHIPPED     -> { if (this.shippedAt == null)    this.shippedAt = now; }
-            case DELIVERED   -> { if (this.deliveredAt == null)  this.deliveredAt = now; }
-            case CANCELLED   -> { if (this.cancelledAt == null)  this.cancelledAt = now; }
-            default -> { /* PENDING / AWAITING_PAYMENT have no dedicated stamp */ }
+            case CONFIRMED  -> this.confirmedAt = now;
+            case PROCESSING -> this.processingAt = now;
+            case SHIPPED    -> this.shippedAt = now;
+            case DELIVERED  -> this.deliveredAt = now;
+            case CANCELLED  -> this.cancelledAt = now;
+            case PENDING, AWAITING_PAYMENT -> { /* no dedicated stamp; createdAt covers PENDING */ }
         }
     }
 
@@ -139,7 +143,7 @@ public class Order {
             case CONFIRMED        -> to == OrderStatus.PROCESSING       || to == OrderStatus.CANCELLED;
             case PROCESSING       -> to == OrderStatus.SHIPPED          || to == OrderStatus.CANCELLED;
             case SHIPPED          -> to == OrderStatus.DELIVERED;
-            default -> false;
+            case DELIVERED, CANCELLED -> false;   // terminal
         };
     }
 }
