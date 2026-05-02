@@ -4,10 +4,11 @@
 
 | | URL |
 |---|---|
-| 🛍️ **Storefront** | <https://n11proje.samedbilgin.com> |
+| 🛍️ **Mağaza** | <https://n11proje.samedbilgin.com> |
 | 🛠️ **Admin Paneli** | <https://n11proje.samedbilgin.com/admin> |
 | 📚 **Swagger (API Docs)** | <https://n11proje.samedbilgin.com/swagger-ui.html> |
 | 🖼️ **CDN (ürün görselleri)** | <https://cdn.n11proje.samedbilgin.com> |
+| 🔍 **Jaeger Tracing UI** | <https://jaegern11proje.samedbilgin.com> *(basic-auth)* |
 | 📦 **MinIO Konsol** | <https://minio.n11proje.samedbilgin.com> *(basic-auth)* |
 
 > DigitalOcean droplet + GHCR + Caddy auto-TLS üzerinde çalışıyor; her `main` push'unda GitHub Actions ile otomatik deploy.
