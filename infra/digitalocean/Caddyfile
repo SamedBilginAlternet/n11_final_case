@@ -5,7 +5,11 @@
 {$DOMAIN:":80"} {
     encode zstd gzip
 
-    @api path /api/* /v3/api-docs/* /swagger-ui/* /swagger-ui.html /aggregated-docs/*
+    # /webjars/* dahil — Spring Boot's /swagger-ui.html bir 302 ile
+    # /webjars/swagger-ui/index.html'e atıyor; bu path'i de gateway'e
+    # yönlendirmezsek redirect zinciri storefront SPA'sına düşüp
+    # kullanıcıyı ana sayfaya götürüyor.
+    @api path /api/* /v3/api-docs/* /swagger-ui/* /swagger-ui.html /webjars/* /aggregated-docs/*
     handle @api {
         reverse_proxy api-gateway:8080
     }
