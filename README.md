@@ -74,6 +74,10 @@ deploy boru hattı (her deploy'da Slack bildirimi).
 
 ## Mimari
 
+![Mimari genel bakış — 3 katman: Client / 7 mikroservis / Storage](./artitechture.png)
+
+Detaylı bağımlılık grafiği:
+
 ```mermaid
 flowchart LR
     Browser[Browser]
@@ -126,6 +130,12 @@ flowchart LR
 
 Detaylı diyagram + tasarım kararları: [`docs/architecture.md`](docs/architecture.md).
 
+### Senkron REST İletişimi
+
+Servisler arası 7 senkron çağrı — `order-service` checkout sırasında üç servisle birden konuşur, `chatbot-service` katalog grounding için `product-service`'e gider.
+
+![REST senkron çağrı haritası](./rest.png)
+
 ## Servisler
 
 | Servis | Port | DB | Görev |
@@ -145,6 +155,8 @@ Her servis kendi `pom.xml`'i, kendi Flyway migration set'i ve kendi DB'si ile ba
 olarak deploy edilebilir.
 
 ## Saga Akışı
+
+![Saga choreography — RabbitMQ üzerinden event-driven akış, orchestrator yok](./saga.png)
 
 İki choreography saga var (Slack runtime bildirimi yok — Slack sadece CI deploy için):
 
