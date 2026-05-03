@@ -249,6 +249,14 @@ jobs:
             fi
             docker compose -f docker-compose.prod.yml --env-file .env pull
             docker compose -f docker-compose.prod.yml --env-file .env up -d --remove-orphans
+            # Caddyfile is bind-mounted; `up -d` won't notice in-place edits to
+            # it because the container spec didn't change.  Graceful reload
+            # picks up the new routes without dropping connections; if the
+            # exec fails (container missing) fall back to a hard restart so
+            # the deploy doesn't silently ship a stale config.
+            docker compose -f docker-compose.prod.yml --env-file .env exec -T caddy \
+              caddy reload --config /etc/caddy/Caddyfile 2>/dev/null \
+              || docker compose -f docker-compose.prod.yml --env-file .env restart caddy
             docker image prune -f
 
   notify:
