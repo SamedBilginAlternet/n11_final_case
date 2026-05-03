@@ -12,7 +12,7 @@ export default function AddressPicker({ addresses, selectedId, onSelect }) {
             <p className="text-xs text-gray-500">Sipariş vermek için önce bir adres ekle.</p>
           </div>
         </div>
-        <Link to="/account/addresses" className="btn-primary flex items-center gap-1.5 text-sm">
+        <Link to="/account/addresses?returnTo=/checkout" className="btn-primary flex items-center gap-1.5 text-sm">
           <Plus className="h-4 w-4" /> Adres ekle
         </Link>
       </div>

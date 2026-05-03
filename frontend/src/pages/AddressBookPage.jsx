@@ -1,4 +1,5 @@
 import { useEffect, useMemo, useState } from 'react';
+import { useNavigate, useSearchParams } from 'react-router-dom';
 import toast from 'react-hot-toast';
 import { Plus, Star, Trash2, Pencil, X, Home, Briefcase, MapPin } from 'lucide-react';
 import { api } from '../api/client.js';
@@ -39,6 +40,16 @@ export default function AddressBookPage() {
   const [loading, setLoading] = useState(true);
   const [editing, setEditing] = useState(null); // null | EMPTY | existing
   const confirm = useConfirm();
+  const navigate = useNavigate();
+  const [searchParams] = useSearchParams();
+  // ?returnTo=/checkout pattern: when a flow (typically checkout) sends the
+  // user here because they have no address, drop them back into that flow as
+  // soon as they save instead of stranding them on the address book.  Only
+  // accept relative paths so the param can't be weaponised as an open-redirect.
+  const rawReturnTo = searchParams.get('returnTo');
+  const returnTo = rawReturnTo && rawReturnTo.startsWith('/') && !rawReturnTo.startsWith('//')
+    ? rawReturnTo
+    : null;
 
   async function load() {
     try {
@@ -62,14 +73,21 @@ export default function AddressBookPage() {
     const body = { ...editing };
     delete body.id;
     try {
-      if (editing.id) {
-        await api.put(`/api/addresses/${editing.id}`, body);
-        toast.success('Adres güncellendi');
-      } else {
+      const isCreate = !editing.id;
+      if (isCreate) {
         await api.post('/api/addresses', body);
         toast.success('Adres eklendi');
+      } else {
+        await api.put(`/api/addresses/${editing.id}`, body);
+        toast.success('Adres güncellendi');
       }
       setEditing(null);
+      // Only redirect on create — editing should keep the user where they are.
+      // returnTo is whitelisted to relative paths above.
+      if (isCreate && returnTo) {
+        navigate(returnTo, { replace: true });
+        return;
+      }
       await load();
     } catch (err) {
       toast.error(err.response?.data?.message || 'Kayıt başarısız');
