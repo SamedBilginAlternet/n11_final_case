@@ -68,8 +68,8 @@ export default function CartPage() {
                 <div className="flex items-center gap-2 text-sm text-gray-500">
                   <button
                     className="h-8 w-8 rounded border border-gray-200 hover:bg-gray-50"
-                    onClick={() => updateQuantity(item.id, Math.max(1, item.quantity - 1))}
-                    aria-label="Azalt"
+                    onClick={() => (item.quantity <= 1 ? removeItem(item.id) : updateQuantity(item.id, item.quantity - 1))}
+                    aria-label={item.quantity <= 1 ? 'Sepetten kaldır' : 'Azalt'}
                   >
                     −
                   </button>
