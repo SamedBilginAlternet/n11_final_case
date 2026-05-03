@@ -249,14 +249,21 @@ jobs:
             fi
             docker compose -f docker-compose.prod.yml --env-file .env pull
             docker compose -f docker-compose.prod.yml --env-file .env up -d --remove-orphans
-            # Caddyfile is bind-mounted; `up -d` won't notice in-place edits to
-            # it because the container spec didn't change.  Graceful reload
-            # picks up the new routes without dropping connections; if the
-            # exec fails (container missing) fall back to a hard restart so
-            # the deploy doesn't silently ship a stale config.
-            docker compose -f docker-compose.prod.yml --env-file .env exec -T caddy \
-              caddy reload --config /etc/caddy/Caddyfile 2>/dev/null \
-              || docker compose -f docker-compose.prod.yml --env-file .env restart caddy
+            # Caddyfile is bind-mounted, so the previous `caddy reload` approach
+            # silently re-read whatever was on disk — if the SCP step had
+            # delivered a stale file, the reload "succeeded" with the wrong
+            # routes and we'd only notice in production.  Now we:
+            #   1) Echo the deployed Caddyfile's @api matcher line so the
+            #      deploy log proves what's actually on the droplet.
+            #   2) Force-recreate the caddy container, which re-reads the
+            #      bind-mount from scratch (no chance of cached config).
+            #   3) Validate Caddy is healthy after recreate.
+            echo "::group::Caddyfile @api matcher on droplet"
+            grep -n '^\s*@api' Caddyfile || echo "::error::no @api matcher found in /opt/n11/Caddyfile"
+            echo "::endgroup::"
+            docker compose -f docker-compose.prod.yml --env-file .env up -d --force-recreate caddy
+            sleep 3
+            docker compose -f docker-compose.prod.yml --env-file .env ps caddy
             docker image prune -f
 
   notify:
