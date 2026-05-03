@@ -57,7 +57,7 @@ public class CartService {
         int targetQuantity = existing.map(CartItem::getQuantity).orElse(0) + request.quantity();
         if (product.stock() != null && targetQuantity > product.stock()) {
             throw new InsufficientStockException(
-                    "Requested quantity exceeds available stock for product " + product.id());
+                    "İstenen miktar ürün stoğunu aşıyor (ürün #" + product.id() + ").");
         }
 
         if (existing.isPresent()) {
@@ -89,7 +89,7 @@ public class CartService {
         ProductSnapshot product = productClient.fetch(item.getProductId());
         if (product != null && product.stock() != null && quantity > product.stock()) {
             throw new InsufficientStockException(
-                    "Requested quantity exceeds available stock for product " + product.id());
+                    "İstenen miktar ürün stoğunu aşıyor (ürün #" + product.id() + ").");
         }
         item.setQuantity(quantity);
         return quoteAndMap(cartRepository.save(cart));
