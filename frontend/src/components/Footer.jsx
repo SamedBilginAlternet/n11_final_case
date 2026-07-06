@@ -8,6 +8,10 @@ import SecurityLogos from './footer/SecurityLogos.jsx';
 import { footerColumns } from '../data/footer.js';
 
 export default function Footer() {
+  // Last 3 chars of the commit short-SHA baked in at build time (deploy
+  // pipeline). Empty on local dev builds, where we hide the tag.
+  const buildTag = (import.meta.env.VITE_APP_VERSION || '').slice(-3);
+
   return (
     <footer className="mt-12 space-y-6 bg-gray-50 pb-8">
       <div className="mx-auto max-w-7xl space-y-6 px-4">
@@ -31,6 +35,7 @@ export default function Footer() {
 
         <p className="pt-2 text-center text-xs text-gray-400">
           © {new Date().getFullYear()} n11 — TalentHub Bootcamp final case
+          {buildTag && <span className="ml-1 text-gray-300">· build {buildTag}</span>}
         </p>
       </div>
     </footer>
