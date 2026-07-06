@@ -4,6 +4,7 @@ import { ShoppingBag } from 'lucide-react';
 import { useCart } from '../state/CartContext.jsx';
 import { useAuth } from '../state/AuthContext.jsx';
 import { formatCurrency } from '../utils/format.js';
+import SafeImage from '../components/SafeImage.jsx';
 
 export default function CartPage() {
   const { cart, updateQuantity, removeItem, applyCoupon, clearCoupon, isGuest } = useCart();
@@ -52,7 +53,7 @@ export default function CartPage() {
         {cart.items.map((item) => (
           <article key={item.id} className="card flex gap-3 p-3 sm:gap-4">
             <div className="h-20 w-20 shrink-0 overflow-hidden rounded bg-gray-100 sm:h-24 sm:w-24">
-              {item.imageUrl && <img src={item.imageUrl} alt={item.productName} className="h-full w-full object-cover" />}
+              <SafeImage src={item.imageUrl} alt={item.productName} className="h-full w-full object-cover" />
             </div>
             <div className="flex min-w-0 flex-1 flex-col justify-between gap-2">
               <div className="flex items-start justify-between gap-2">

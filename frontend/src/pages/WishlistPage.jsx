@@ -9,6 +9,7 @@ import { useCart } from '../state/CartContext.jsx';
 import { useWishlist } from '../state/WishlistContext.jsx';
 import { loadGuestWishlist } from '../utils/guestWishlist.js';
 import { formatCurrency } from '../utils/format.js';
+import SafeImage from '../components/SafeImage.jsx';
 
 export default function WishlistPage() {
   const { isAuthed } = useAuth();
@@ -106,9 +107,7 @@ export default function WishlistPage() {
               >
                 <Link to={`/products/${item.slug}`} className="block">
                   <div className="aspect-square overflow-hidden bg-gray-50">
-                    {item.imageUrl && (
-                      <img src={item.imageUrl} alt={item.name} loading="lazy" className="h-full w-full object-cover" />
-                    )}
+                    <SafeImage src={item.imageUrl} alt={item.name} loading="lazy" className="h-full w-full object-cover" />
                   </div>
                   <div className="space-y-1 p-3">
                     <h3 className="line-clamp-2 min-h-[2.5rem] text-sm leading-snug text-gray-800">{item.name}</h3>

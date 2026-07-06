@@ -9,6 +9,7 @@ import { formatCurrency } from '../utils/format.js';
 import CheckoutStepper from '../components/checkout/CheckoutStepper.jsx';
 import AddressPicker from '../components/checkout/AddressPicker.jsx';
 import CardForm, { EMPTY_CARD, isCardComplete } from '../components/checkout/CardForm.jsx';
+import SafeImage from '../components/SafeImage.jsx';
 
 const STEPS = ['Adres', 'Ödeme', 'Onay'];
 
@@ -281,7 +282,7 @@ function SummaryCard({ cart }) {
         {cart.items.map((item) => (
           <li key={item.id} className="flex items-center gap-2">
             <div className="h-10 w-10 shrink-0 overflow-hidden rounded bg-gray-100">
-              {item.imageUrl && <img src={item.imageUrl} alt={item.productName} className="h-full w-full object-cover" />}
+              <SafeImage src={item.imageUrl} alt={item.productName} className="h-full w-full object-cover" />
             </div>
             <div className="flex-1 truncate">
               <p className="truncate text-xs text-gray-700">{item.productName}</p>

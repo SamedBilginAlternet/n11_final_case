@@ -2,6 +2,7 @@ import { Link } from 'react-router-dom';
 import { Truck } from 'lucide-react';
 import HeartButton from './product/HeartButton.jsx';
 import RatingStars from './product/RatingStars.jsx';
+import SafeImage from './SafeImage.jsx';
 import { formatCurrency } from '../utils/format.js';
 
 export default function ProductCard({ product, badge = 'KUPONLU ÜRÜN', campaign = '4 AL 3 ÖDE', oldPrice }) {
@@ -16,11 +17,7 @@ export default function ProductCard({ product, badge = 'KUPONLU ÜRÜN', campaig
 
       <Link to={`/products/${product.slug}`} className="block">
         <div className="aspect-square overflow-hidden bg-gray-50">
-          {product.imageUrl ? (
-            <img src={product.imageUrl} alt={product.name} loading="lazy" className="h-full w-full object-cover transition-transform group-hover:scale-105" />
-          ) : (
-            <div className="grid h-full place-items-center text-gray-300">no image</div>
-          )}
+          <SafeImage src={product.imageUrl} alt={product.name} loading="lazy" className="h-full w-full object-cover transition-transform group-hover:scale-105" />
         </div>
 
         <div className="flex w-full items-center justify-center gap-1.5 bg-n11-black py-1.5 text-[11px] font-bold uppercase tracking-wider text-white">

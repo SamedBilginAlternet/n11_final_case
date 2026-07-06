@@ -6,6 +6,7 @@ import HeartButton from './HeartButton.jsx';
 import RatingStars from './RatingStars.jsx';
 import { api } from '../../api/client.js';
 import { formatCurrency } from '../../utils/format.js';
+import SafeImage from '../SafeImage.jsx';
 
 /**
  * Horizontal-scroll recommendation strip on the product detail page.
@@ -62,16 +63,12 @@ export default function RecommendationStrip({ productId }) {
                 <HeartButton productId={product.id} />
                 <Link to={`/products/${product.slug}`} className="block">
                   <div className="aspect-square overflow-hidden bg-gray-50">
-                    {product.imageUrl ? (
-                      <img
-                        src={product.imageUrl}
-                        alt={product.name}
-                        loading="lazy"
-                        className="h-full w-full object-cover transition-transform group-hover:scale-105"
-                      />
-                    ) : (
-                      <div className="grid h-full place-items-center text-gray-300">no image</div>
-                    )}
+                    <SafeImage
+                      src={product.imageUrl}
+                      alt={product.name}
+                      loading="lazy"
+                      className="h-full w-full object-cover transition-transform group-hover:scale-105"
+                    />
                   </div>
                   <div className="flex w-full items-center justify-center gap-1.5 bg-n11-black py-1.5 text-[10px] font-bold uppercase tracking-wider text-white">
                     <Truck size={12} strokeWidth={2} aria-hidden />

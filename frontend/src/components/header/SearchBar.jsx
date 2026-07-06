@@ -1,6 +1,7 @@
 import { useEffect, useRef, useState } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
 import { api } from '../../api/client.js';
+import SafeImage from '../SafeImage.jsx';
 
 export default function SearchBar() {
   const [value, setValue] = useState('');
@@ -58,11 +59,7 @@ export default function SearchBar() {
                 onClick={() => setOpen(false)}
                 className="flex items-center gap-3 px-3 py-2 hover:bg-n11-pinkBg"
               >
-                {s.imageUrl ? (
-                  <img src={s.imageUrl} alt="" className="h-10 w-10 rounded object-cover" />
-                ) : (
-                  <div className="h-10 w-10 rounded bg-gray-100" />
-                )}
+                <SafeImage src={s.imageUrl} alt="" className="h-10 w-10 shrink-0 rounded object-cover" />
                 <div className="min-w-0">
                   <p className="truncate text-sm font-medium text-gray-800">{s.name}</p>
                   <p className="truncate text-xs text-gray-500">{s.categoryName}</p>

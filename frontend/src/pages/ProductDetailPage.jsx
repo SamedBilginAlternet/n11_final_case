@@ -7,6 +7,7 @@ import { useWishlist } from '../state/WishlistContext.jsx';
 import RatingStars from '../components/product/RatingStars.jsx';
 import RecommendationStrip from '../components/product/RecommendationStrip.jsx';
 import ReviewsSection from '../components/product/ReviewsSection.jsx';
+import SafeImage from '../components/SafeImage.jsx';
 import { formatCurrency } from '../utils/format.js';
 
 export default function ProductDetailPage() {
@@ -52,11 +53,7 @@ export default function ProductDetailPage() {
     <div className="space-y-8">
     <div className="grid gap-4 md:gap-6 md:grid-cols-2">
       <div className="card overflow-hidden">
-        {product.imageUrl ? (
-          <img src={product.imageUrl} alt={product.name} className="aspect-square w-full object-cover" />
-        ) : (
-          <div className="aspect-square bg-gray-100" />
-        )}
+        <SafeImage src={product.imageUrl} alt={product.name} className="aspect-square w-full object-cover" />
       </div>
 
       <div className="space-y-4">
