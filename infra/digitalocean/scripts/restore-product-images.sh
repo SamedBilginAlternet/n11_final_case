@@ -1,20 +1,24 @@
 #!/usr/bin/env bash
 #
-# Idempotent product-image restore for the n11-products MinIO bucket.
-# Downloads each catalog image from its original Unsplash source (the URLs
-# the V8/V9 seed migrations used before V11 flipped image_url to the CDN)
-# and uploads it to products/<slug>.jpg, but ONLY if the object is missing.
+# Idempotent, self-healing product-image restore for the n11-products
+# MinIO bucket.  Downloads each catalog image from its original Unsplash
+# source (the URLs the V8/V9 seed migrations used before V11 flipped
+# image_url to the CDN) and uploads it to products/<slug>.jpg.
 #
-# Invoked automatically by the deploy pipeline after `docker compose up`,
-# so a fresh or wiped MinIO volume self-heals with zero manual steps.
-# Safe to run by hand too:  bash /opt/n11/scripts/restore-product-images.sh
+# Only fetches objects that are MISSING or empty (<100B), so a fresh or
+# partially-restored bucket converges over repeated runs.  Each download
+# goes to a temp file first and is verified non-empty before upload, so a
+# flaky Unsplash response can never leave a 0-byte object behind.
+#
+# Invoked automatically by the deploy pipeline after `docker compose up`
+# (zero manual SSH).  Safe to run by hand:
+#   bash /opt/n11/scripts/restore-product-images.sh
 
 set -uo pipefail
 
 DC="docker compose -f /opt/n11/docker-compose.prod.yml --env-file /opt/n11/.env"
 
-# Wait for MinIO to accept connections (it may still be booting right after
-# `compose up`).  Give up gracefully after ~60s — never fail the deploy.
+# Wait for MinIO to accept connections (still booting right after up).
 ready=""
 for _ in $(seq 1 30); do
   if $DC exec -T minio sh -c 'mc alias set local http://localhost:9000 "$MINIO_ROOT_USER" "$MINIO_ROOT_PASSWORD"' >/dev/null 2>&1; then
@@ -27,25 +31,33 @@ if [ -z "$ready" ]; then
   exit 0
 fi
 
-# Ensure the bucket exists and is publicly readable (object-level GET).
+# Bucket + public read (object-level GET), idempotent.
 $DC exec -T minio sh -c 'mc mb -p local/n11-products >/dev/null 2>&1 || true; mc anonymous set download local/n11-products >/dev/null 2>&1 || true'
 
-# Snapshot the objects already present so we only fetch what is missing.
-existing="$($DC exec -T minio sh -c 'mc ls --recursive local/n11-products 2>/dev/null' | awk '{print $NF}' || true)"
+# Objects already present AND non-empty (>100B). 0-byte leftovers are
+# treated as absent so they get re-fetched and overwritten.
+existing="$($DC exec -T minio sh -c 'mc find local/n11-products/products --larger 100B 2>/dev/null' | sed 's#.*/##' || true)"
 
 ok=0; skip=0; fail=0
 up() {
-  if printf '%s\n' "$existing" | grep -qx "products/$1.jpg"; then
+  if printf '%s\n' "$existing" | grep -qx "$1.jpg"; then
     skip=$((skip+1)); return
   fi
-  if curl -fsSL --max-time 45 "$2" | $DC exec -T minio mc pipe "local/n11-products/products/$1.jpg" >/dev/null 2>&1; then
+  tmp="$(mktemp)"
+  got=""
+  for attempt in 1 2 3; do
+    if curl -fsSL --max-time 45 -o "$tmp" "$2" && [ -s "$tmp" ]; then got=1; break; fi
+    sleep 2
+  done
+  if [ -n "$got" ] && $DC exec -T minio mc pipe "local/n11-products/products/$1.jpg" < "$tmp" >/dev/null 2>&1; then
     echo "  OK   $1"; ok=$((ok+1))
   else
     echo "  FAIL $1"; fail=$((fail+1))
   fi
+  rm -f "$tmp"
 }
 
-echo "==> restoring product images (missing only)"
+echo "==> restoring product images (missing/empty only)"
 up "iphone-15-pro-256gb" "https://images.unsplash.com/photo-1696446702183-be01a4f01097?w=600&h=600&fit=crop&auto=format&q=80"
 up "samsung-galaxy-s24" "https://images.unsplash.com/photo-1610945265064-0e34e5519bbf?w=600&h=600&fit=crop&auto=format&q=80"
 up "macbook-air-m3-13" "https://images.unsplash.com/photo-1517336714731-489689fd1ca8?w=600&h=600&fit=crop&auto=format&q=80"
