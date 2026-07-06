@@ -1,35 +1,51 @@
 #!/usr/bin/env bash
 #
-# One-shot recovery: re-populates the n11-products MinIO bucket with the
-# 40 catalog product images after a server migration wiped object storage.
-# Downloads each image from its original Unsplash source (the URLs the
-# V8/V9 seed migrations used before V11 flipped image_url to the CDN) and
-# uploads it to products/<slug>.jpg, then ensures the bucket is public-read.
+# Idempotent product-image restore for the n11-products MinIO bucket.
+# Downloads each catalog image from its original Unsplash source (the URLs
+# the V8/V9 seed migrations used before V11 flipped image_url to the CDN)
+# and uploads it to products/<slug>.jpg, but ONLY if the object is missing.
 #
-# Run on the droplet:  bash /opt/n11/scripts/restore-product-images.sh
-# Idempotent: re-running just re-uploads (overwrites) the same objects.
+# Invoked automatically by the deploy pipeline after `docker compose up`,
+# so a fresh or wiped MinIO volume self-heals with zero manual steps.
+# Safe to run by hand too:  bash /opt/n11/scripts/restore-product-images.sh
 
-set -euo pipefail
+set -uo pipefail
 
 DC="docker compose -f /opt/n11/docker-compose.prod.yml --env-file /opt/n11/.env"
 
-echo "==> ensuring bucket + public-read policy"
-$DC exec -T minio sh -c '
-  mc alias set local http://localhost:9000 "$MINIO_ROOT_USER" "$MINIO_ROOT_PASSWORD" >/dev/null
-  mc mb -p local/n11-products >/dev/null 2>&1 || true
-  mc anonymous set download local/n11-products >/dev/null
-'
+# Wait for MinIO to accept connections (it may still be booting right after
+# `compose up`).  Give up gracefully after ~60s — never fail the deploy.
+ready=""
+for _ in $(seq 1 30); do
+  if $DC exec -T minio sh -c 'mc alias set local http://localhost:9000 "$MINIO_ROOT_USER" "$MINIO_ROOT_PASSWORD"' >/dev/null 2>&1; then
+    ready=1; break
+  fi
+  sleep 2
+done
+if [ -z "$ready" ]; then
+  echo "minio not reachable, skipping image restore (non-fatal)"
+  exit 0
+fi
 
-ok=0; fail=0
+# Ensure the bucket exists and is publicly readable (object-level GET).
+$DC exec -T minio sh -c 'mc mb -p local/n11-products >/dev/null 2>&1 || true; mc anonymous set download local/n11-products >/dev/null 2>&1 || true'
+
+# Snapshot the objects already present so we only fetch what is missing.
+existing="$($DC exec -T minio sh -c 'mc ls --recursive local/n11-products 2>/dev/null' | awk '{print $NF}' || true)"
+
+ok=0; skip=0; fail=0
 up() {
+  if printf '%s\n' "$existing" | grep -qx "products/$1.jpg"; then
+    skip=$((skip+1)); return
+  fi
   if curl -fsSL --max-time 45 "$2" | $DC exec -T minio mc pipe "local/n11-products/products/$1.jpg" >/dev/null 2>&1; then
-    echo "  OK  $1"; ok=$((ok+1))
+    echo "  OK   $1"; ok=$((ok+1))
   else
     echo "  FAIL $1"; fail=$((fail+1))
   fi
 }
 
-echo "==> uploading 40 product images"
+echo "==> restoring product images (missing only)"
 up "iphone-15-pro-256gb" "https://images.unsplash.com/photo-1696446702183-be01a4f01097?w=600&h=600&fit=crop&auto=format&q=80"
 up "samsung-galaxy-s24" "https://images.unsplash.com/photo-1610945265064-0e34e5519bbf?w=600&h=600&fit=crop&auto=format&q=80"
 up "macbook-air-m3-13" "https://images.unsplash.com/photo-1517336714731-489689fd1ca8?w=600&h=600&fit=crop&auto=format&q=80"
@@ -71,5 +87,4 @@ up "sapiens" "https://images.unsplash.com/photo-1589998059171-988d887df646?w=600
 up "loreal-elseve-sampuan" "https://images.unsplash.com/photo-1556228720-195a672e8a03?w=600&h=600&fit=crop&auto=format&q=80"
 up "bahce-makasi-3lu" "https://images.unsplash.com/photo-1416879595882-3373a0480b5b?w=600&h=600&fit=crop&auto=format&q=80"
 
-echo
-echo "==> done: $ok uploaded, $fail failed"
+echo "==> images: $ok uploaded, $skip already present, $fail failed"

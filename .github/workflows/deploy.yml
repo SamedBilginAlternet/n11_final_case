@@ -250,6 +250,12 @@ jobs:
             fi
             docker compose -f docker-compose.prod.yml --env-file .env pull
             docker compose -f docker-compose.prod.yml --env-file .env up -d --remove-orphans
+            # Self-heal MinIO product images (idempotent — uploads only what's
+            # missing) so a fresh/wiped object store repopulates with no manual
+            # SSH. Non-fatal: a failure here never blocks the deploy.
+            if [ -f ./scripts/restore-product-images.sh ]; then
+              bash ./scripts/restore-product-images.sh || echo "::warning::image restore failed (non-fatal)"
+            fi
             # Caddyfile is bind-mounted, so the previous `caddy reload` approach
             # silently re-read whatever was on disk — if the SCP step had
             # delivered a stale file, the reload "succeeded" with the wrong
