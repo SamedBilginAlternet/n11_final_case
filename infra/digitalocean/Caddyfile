@@ -128,3 +128,13 @@ faruktekstil.samedbilgin.com {
         format console
     }
 }
+
+# KPSS Atlas (Coolify ile yonetilir, host portu 8082)
+kpssatlas.samedbilgin.com {
+    encode zstd gzip
+    reverse_proxy host.docker.internal:8082
+    log {
+        output stdout
+        format console
+    }
+}
