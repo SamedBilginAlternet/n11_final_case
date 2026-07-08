@@ -319,6 +319,13 @@ services:
     ports:
       - "80:80"
       - "443:443"
+    # Bu Caddy VPS'in TEK paylasimli edge proxy'sidir (80/443'u o tutar).
+    # n11 disindaki projeler ( or. Faruk Tekstil, Coolify ile yonetilen)
+    # host'ta kendi portlarini yayinlar; asagidaki host-gateway girdisi
+    # Caddy'nin `host.docker.internal:<port>`e reverse-proxy edebilmesini
+    # saglar. Yeni proje = Caddyfile'a site blogu + host portu.
+    extra_hosts:
+      - "host.docker.internal:host-gateway"
     volumes:
       - ./Caddyfile:/etc/caddy/Caddyfile:ro
       - n11_caddy_data:/data

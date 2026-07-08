@@ -108,3 +108,23 @@
         format console
     }
 }
+
+# ---------------------------------------------------------------------------
+# PAYLASIMLI EDGE — n11 disindaki projeler
+# ---------------------------------------------------------------------------
+# Bu Caddy VPS'in tek edge proxy'si oldugu icin, ayni sunucudaki diger
+# projeleri de buradan yayinliyoruz. Her proje host'ta sabit bir port
+# yayinlar (Coolify/compose ile), asagida bir site blogu domain -> o porta
+# reverse-proxy eder. TLS'i Caddy otomatik (Let's Encrypt) alir.
+# host.docker.internal, compose'daki caddy.extra_hosts (host-gateway) ile
+# cozulur. Yeni proje eklemek: bir sonraki bos portu sec + blok kopyala.
+
+# Faruk Tekstil ERP (Coolify ile yonetilir, frontend host portu 8081)
+faruktekstil.samedbilgin.com {
+    encode zstd gzip
+    reverse_proxy host.docker.internal:8081
+    log {
+        output stdout
+        format console
+    }
+}
