@@ -138,3 +138,13 @@ kpssatlas.samedbilgin.com {
         format console
     }
 }
+
+# Olaylar Arsivi (Coolify ile yonetilir, host portu 8083 = compose'daki WEB_PORT)
+olay.samedbilgin.com {
+    encode zstd gzip
+    reverse_proxy host.docker.internal:8083
+    log {
+        output stdout
+        format console
+    }
+}
