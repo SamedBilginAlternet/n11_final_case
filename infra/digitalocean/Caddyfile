@@ -148,3 +148,33 @@ olay.samedbilgin.com {
         format console
     }
 }
+
+# Rung (Coolify ile yonetilir, web 8084 / api 8085 = compose'daki WEB_PORT/API_PORT)
+# /hub/* SignalR: `encode` BILEREK yok — SSE/long-polling fallback'i sikistirmak
+# frame'leri buffer'lar ve baglanti donmus gorunur. Elle header_up
+# Connection/Upgrade EKLENMEZ; Caddy hop-by-hop header'lari kendi yonetir.
+rung.samedbilgin.com {
+    handle /hub/* {
+        reverse_proxy host.docker.internal:8085 {
+            transport http {
+                versions 1.1
+            }
+            flush_interval -1
+        }
+    }
+
+    handle /api/* {
+        encode zstd gzip
+        reverse_proxy host.docker.internal:8085
+    }
+
+    handle {
+        encode zstd gzip
+        reverse_proxy host.docker.internal:8084
+    }
+
+    log {
+        output stdout
+        format console
+    }
+}
