@@ -178,3 +178,33 @@ rung.samedbilgin.com {
         format console
     }
 }
+
+# Relay (Coolify ile yonetilir, web 8086 / api 8087)
+relay.samedbilgin.com {
+    # SSE akisi ONCE gelmeli — asagidaki genel /api/* bloguyla ayni yolu
+    # esliyor ve Caddy ilk eslesen `handle`i kullanir.
+    # `encode` BILEREK yok: SSE'yi sikistirmak frame'leri buffer'lar, olaylar
+    # toplu halde gelir ve arayuz DONMUS gorunur (adimlar bir anda akar).
+    # `flush_interval -1` her yazmayi aninda istemciye iter.
+    handle /api/runs/*/stream {
+        reverse_proxy host.docker.internal:8087 {
+            flush_interval -1
+        }
+    }
+
+    handle /api/* {
+        encode zstd gzip
+        reverse_proxy host.docker.internal:8087
+    }
+
+    handle {
+        encode zstd gzip
+        reverse_proxy host.docker.internal:8086
+    }
+
+    log {
+        output stdout
+        format console
+    }
+}
+
